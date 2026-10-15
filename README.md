@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/tezcatl_banner.png" alt="TEZCATL // Obsidian Mirror Graph Containment Engine" width="450" />
+</p>
+
 # TEZCATL // Track 01: Agents That Act on Connected Data
 ### Graph-Native Obsidian Containment Engine Powered by FalkorDB
 
