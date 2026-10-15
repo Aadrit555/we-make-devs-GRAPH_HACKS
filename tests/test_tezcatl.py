@@ -510,3 +510,135 @@ def test_live_query_telemetry_capture(client):
     assert telemetry.latency_ms >= 0.0
     assert telemetry.client_latency_ms >= 0.0
     assert len(telemetry.query) > 0
+
+
+# ==============================================================================
+# FastAPI Production Gateway Integration Tests
+# ==============================================================================
+
+from fastapi.testclient import TestClient
+from app import app
+
+
+@pytest.fixture
+def http_client():
+    return TestClient(app)
+
+
+def test_fastapi_index_html_serving(http_client):
+    """Verify clean-room brutalist frontend/index.html is served on GET /."""
+    res = http_client.get("/")
+    assert res.status_code == 200
+    assert "TEZCATL" in res.text
+    assert "#f1f1ee" in res.text
+    assert "FALKORDB" in res.text
+
+
+def test_fastapi_health_endpoint(http_client):
+    """Verify /api/health returns live FalkorDB connectivity."""
+    seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=PROD_GRAPH)
+    res = http_client.get("/api/health")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "HEALTHY"
+    assert data["node_count"] >= 25
+    assert data["edge_count"] >= 29
+
+
+def test_fastapi_investigate_endpoint(http_client):
+    """Verify /api/investigate executes 5-stage pipeline and returns optimal cut."""
+    seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=PROD_GRAPH)
+    payload = {
+        "source_id": "ci_runner",
+        "target_id": "signing_key",
+        "max_hops": 8,
+        "exclude_ids": [],
+    }
+    res = http_client.post("/api/investigate", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    analysis = data["analysis"]
+    assert len(analysis["discovered_paths"]) == 3
+    assert analysis["recommended_plan"]["total_cost"] == 5
+    assert set(analysis["recommended_plan"]["selected_node_ids"]) == {"deploy_token", "artifact_token"}
+    assert analysis["counterfactual_remaining_paths"] == 0
+    assert "audit_receipt" in analysis
+
+
+def test_fastapi_contain_endpoint(http_client):
+    """Verify /api/contain commits containment, severs attack paths, and issues receipt."""
+    seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=PROD_GRAPH)
+    payload = {
+        "source_id": "ci_runner",
+        "target_id": "signing_key",
+        "cut_node_ids": ["deploy_token", "artifact_token"],
+        "incident_id": "INC-TEST-API",
+        "max_hops": 8,
+    }
+    res = http_client.post("/api/contain", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "CONTAINED_AND_VERIFIED"
+    assert data["receipt"]["verified_remaining_paths"] == 0
+    assert data["receipt"]["pre_mitigation_graph_hash"] != data["receipt"]["post_mitigation_graph_hash"]
+
+
+def test_fastapi_reset_endpoint(http_client):
+    """Verify /api/reset restores pristine topology."""
+    res = http_client.post("/api/reset")
+    assert res.status_code == 200
+    assert res.json()["status"] == "SUCCESS"
+
+
+def test_fastapi_stress_endpoints(http_client):
+    """Verify cost mutation and bypass edge injection endpoints."""
+    # Cost mutation
+    res = http_client.post("/api/stress/cost", json={"node_id": "deploy_token", "new_cost": 25})
+    assert res.status_code == 200
+    assert res.json()["new_cost"] == 25
+
+    # Bypass injection and removal
+    res_inject = http_client.post("/api/stress/bypass", json={"action": "inject"})
+    assert res_inject.status_code == 200
+    assert res_inject.json()["action"] == "injected"
+
+    res_remove = http_client.post("/api/stress/bypass", json={"action": "remove"})
+    assert res_remove.status_code == 200
+    assert res_remove.json()["action"] == "removed"
+
+    # Reset back to pristine
+    http_client.post("/api/reset")
+
+
+def test_fastapi_mcp_endpoint(http_client):
+    """Verify /api/mcp handles standard JSON-RPC 2.0 requests."""
+    # tools/list
+    rpc_list = {
+        "jsonrpc": "2.0",
+        "id": "1",
+        "method": "tools/list",
+        "params": {},
+    }
+    res = http_client.post("/api/mcp", json=rpc_list)
+    assert res.status_code == 200
+    data = res.json()
+    assert "result" in data
+    tool_names = [t["name"] for t in data["result"]["tools"]]
+    assert "scry_attack_paths" in tool_names
+    assert "simulate_mirror_containment" in tool_names
+
+    # tools/call
+    rpc_call = {
+        "jsonrpc": "2.0",
+        "id": "2",
+        "method": "tools/call",
+        "params": {
+            "name": "scry_attack_paths",
+            "arguments": {"source_id": "ci_runner", "target_id": "signing_key", "max_hops": 8},
+        },
+    }
+    res_call = http_client.post("/api/mcp", json=rpc_call)
+    assert res_call.status_code == 200
+    data_call = res_call.json()
+    assert "result" in data_call
+    assert len(data_call["result"]["content"]) == 3

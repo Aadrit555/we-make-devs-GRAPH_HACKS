@@ -19,7 +19,7 @@ services:
     build: .
     container_name: tezcatl-app
     ports:
-      - "8501:8501"
+      - "8000:8000"
     environment:
       - FALKORDB_HOST=falkordb
       - FALKORDB_PORT=6379

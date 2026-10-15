@@ -7,10 +7,14 @@ with revenue_impact_scores for dynamic blast-radius calculation.
 """
 
 import sys
-from dotenv import load_dotenv
 from falkordb import FalkorDB
 
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 
 try:
     from config import settings
@@ -168,6 +172,14 @@ def seed_database(host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_na
 
     seed_single_graph(target_graph, graph_name)
 
+    # If target is prod_graph, also seed cutline_demo for backwards compatibility
+    if graph_name != "cutline_demo":
+        try:
+            demo_graph = db.select_graph("cutline_demo")
+            seed_single_graph(demo_graph, "cutline_demo")
+        except Exception:
+            pass
+
     # Verify counts on target graph
     node_res = target_graph.query("MATCH (n:Entity) RETURN count(n) AS cnt")
     service_res = target_graph.query("MATCH (s:Service) RETURN count(s) AS cnt")
@@ -212,8 +224,6 @@ def seed_database(host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_na
 
     print("SUCCESS: TEZCATL graph populated and all node, edge, and path assertions passed.")
 
-
-seed_graph = seed_database
 
 if __name__ == "__main__":
     seed_database()

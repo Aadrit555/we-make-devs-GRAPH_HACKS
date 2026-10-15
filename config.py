@@ -1,30 +1,41 @@
 """
-TEZCATL Sovereign Graph Engine — Authored by Aadrit555
-config.py — Central configuration for FalkorDB connections and graph topology defaults.
+config.py — Typed application configuration for TEZCATL.
 
-Zero external API dependencies. Pure first-party architecture.
+Enforces zero-hardcoding environment configuration with strict validation.
+Zero external API keys: 100% self-contained sovereign execution.
 """
 
 import os
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import BaseModel, Field
 
 
-class Settings(BaseSettings):
-    """Configuration for local and containerized FalkorDB graph instances."""
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore"
+class Settings(BaseModel):
+    """Central typed settings for TEZCATL database connections and graph defaults."""
+
+    falkordb_host: str = Field(default_factory=lambda: os.getenv("FALKORDB_HOST", "127.0.0.1"))
+    falkordb_port: int = Field(default_factory=lambda: int(os.getenv("FALKORDB_PORT", "6379")))
+    falkordb_graph: str = Field(
+        default_factory=lambda: os.getenv("TEZCATL_PROD_GRAPH", os.getenv("FALKORDB_GRAPH", "prod_graph"))
     )
+    falkordb_mirror_graph: str = Field(
+        default_factory=lambda: os.getenv("TEZCATL_MIRROR_GRAPH", os.getenv("FALKORDB_MIRROR_GRAPH", "tezcatl_mirror"))
+    )
+    tezcatl_source_id: str = Field(default_factory=lambda: os.getenv("TEZCATL_SOURCE_ID", "ci_runner"))
+    tezcatl_target_id: str = Field(default_factory=lambda: os.getenv("TEZCATL_TARGET_ID", "signing_key"))
+    tezcatl_max_hops: int = Field(default_factory=lambda: int(os.getenv("TEZCATL_MAX_HOPS", "8")))
 
-    falkordb_host: str = Field(default="127.0.0.1", alias="FALKORDB_HOST")
-    falkordb_port: int = Field(default=6379, alias="FALKORDB_PORT")
-    falkordb_graph: str = Field(default="prod_graph", alias="FALKORDB_GRAPH")
-    falkordb_mirror_graph: str = Field(default="tezcatl_mirror", alias="TEZCATL_MIRROR_GRAPH")
-    tezcatl_source_id: str = Field(default="ci_runner", alias="TEZCATL_SOURCE_ID")
-    tezcatl_target_id: str = Field(default="signing_key", alias="TEZCATL_TARGET_ID")
-    tezcatl_max_hops: int = Field(default=8, alias="TEZCATL_MAX_HOPS")
+    # Backward compatibility properties
+    @property
+    def cutline_source_id(self) -> str:
+        return self.tezcatl_source_id
+
+    @property
+    def cutline_target_id(self) -> str:
+        return self.tezcatl_target_id
+
+    @property
+    def cutline_max_hops(self) -> int:
+        return self.tezcatl_max_hops
 
 
 settings = Settings()
