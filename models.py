@@ -226,3 +226,78 @@ class PipelineStageResult(BaseModel):
     cypher_queries_executed: List[str] = Field(default_factory=list)
     output_summary: str
     stage_data: Dict[str, Any] = Field(default_factory=dict)
+
+
+# ==============================================================================
+# Model Context Protocol (MCP) JSON-RPC 2.0 Schemas
+# ==============================================================================
+
+class JsonRpcRequest(BaseModel):
+    """Strict JSON-RPC 2.0 Request model."""
+    model_config = ConfigDict(extra="forbid")
+
+    jsonrpc: str = Field(default="2.0", pattern=r"^2\.0$")
+    id: Optional[Any] = None
+    method: str
+    params: Dict[str, Any] = Field(default_factory=dict)
+
+
+class JsonRpcError(BaseModel):
+    """Strict JSON-RPC 2.0 Error model."""
+    model_config = ConfigDict(extra="forbid")
+
+    code: int
+    message: str
+    data: Optional[Any] = None
+
+
+class JsonRpcResponse(BaseModel):
+    """Strict JSON-RPC 2.0 Response model."""
+    model_config = ConfigDict(extra="forbid")
+
+    jsonrpc: str = Field(default="2.0", pattern=r"^2\.0$")
+    id: Optional[Any] = None
+    result: Optional[Any] = None
+    error: Optional[JsonRpcError] = None
+
+
+class McpToolDefinition(BaseModel):
+    """MCP Tool schema definition."""
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    description: str
+    inputSchema: Dict[str, Any]
+
+
+class McpCallToolRequest(BaseModel):
+    """MCP tools/call request payload."""
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    arguments: Dict[str, Any] = Field(default_factory=dict)
+
+
+class IncidentAnalysisResult(BaseModel):
+    """Complete structured output of the graph investigation and optimization workflow."""
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]{1,64}$")
+    target_id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]{1,64}$")
+    discovered_paths: List[AttackPath]
+    centrality_scores: List[CentralityScore]
+    eligible_candidates: List[MitigationCandidate]
+    recommended_plan: Optional[CutPlan] = None
+    counterfactual_remaining_paths: int = Field(ge=0)
+    graph_is_contained: bool
+    status_message: str
+    telemetry: Optional[QueryTelemetry] = None
+    mirror_simulation: Optional[Dict[str, Any]] = None
+    pre_mitigation_hash: Optional[str] = None
+    audit_receipt: Optional[ContainmentAuditReceipt] = None
+
+
+class GraphFreshnessError(Exception):
+    """Raised when the graph state has changed between plan calculation and approval."""
+    def __init__(self, message: str):
+        super().__init__(message)

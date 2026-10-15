@@ -213,5 +213,7 @@ def seed_database(host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_na
     print("SUCCESS: TEZCATL graph populated and all node, edge, and path assertions passed.")
 
 
+seed_graph = seed_database
+
 if __name__ == "__main__":
     seed_database()

@@ -2,13 +2,14 @@
 TEZCATL Sovereign Graph Engine — Authored by Aadrit555
 app.py — High-Density SecOps Incident Containment Console for TEZCATL.
 
+Track 01: Agents That Act on Connected Data
 TEZCATL // Obsidian Mirror Graph Containment Engine
 Multi-Hop Breach Discovery, Blast-Radius Calculus & Shadow-Graph Verification powered by FalkorDB.
 
 100% First-Party Python Architecture:
-- 5-Stage Deterministic Execution Pipeline (Stage 1 to Stage 5)
-- Zero External SaaS APIs (Pure first-party sovereign Python)
-- Zero Third-Party Agent Frameworks (No external agent abstractions)
+- First-Party JSON-RPC 2.0 Model Context Protocol (MCP) Tool Server
+- Sovereign Track 01 Autonomous Agent (TezcatlAgent)
+- Zero External APIs, Zero Third-Party Agent Frameworks
 - Live FalkorDB Cypher Scrying, Centrality & Shadow-Graph Mirroring
 """
 
@@ -27,6 +28,8 @@ from models import (
     SparedBottleneck,
     ContainmentAuditReceipt,
     PipelineStageResult,
+    IncidentAnalysisResult,
+    GraphFreshnessError,
 )
 from graph_client import (
     FalkorGraphClient,
@@ -34,15 +37,8 @@ from graph_client import (
     DatabaseConnectionError,
     GraphQueryError,
 )
-from logic import (
-    ContainmentService,
-    GraphFreshnessError,
-    IncidentAnalysisResult,
-)
-from pipeline import (
-    TezcatlPipeline,
-    TezcatlPipelineRun,
-)
+from mcp_server import McpServer
+from agent import TezcatlAgent
 
 st.set_page_config(
     page_title="TEZCATL — Obsidian Mirror Graph Containment Engine",
@@ -136,17 +132,6 @@ CUSTOM_CSS = """
         font-family: "JetBrains Mono", monospace;
         font-size: 0.78rem;
     }
-    .telemetry-row {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 0.75rem;
-        color: #c9d1d9;
-        margin-bottom: 4px;
-    }
-    .sandbox-compare {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 10px;
-    }
     .sandbox-box {
         flex: 1;
         padding: 10px;
@@ -179,20 +164,18 @@ if "client" not in st.session_state:
         graph_name=settings.falkordb_graph,
     )
 
-if "service" not in st.session_state:
-    st.session_state.service = ContainmentService(client=st.session_state.client)
+if "mcp" not in st.session_state:
+    st.session_state.mcp = McpServer(client=st.session_state.client)
 
-if "read_only_client" not in st.session_state:
-    st.session_state.read_only_client = ReadOnlyGraphClient(st.session_state.client)
-
-if "pipeline" not in st.session_state:
-    st.session_state.pipeline = TezcatlPipeline(
+if "agent" not in st.session_state:
+    st.session_state.agent = TezcatlAgent(
         client=st.session_state.client,
+        mcp=st.session_state.mcp,
         mirror_graph_name=settings.falkordb_mirror_graph,
     )
 
-if "pipeline_run" not in st.session_state:
-    st.session_state.pipeline_run = None
+if "pipeline_stages" not in st.session_state:
+    st.session_state.pipeline_stages = None
 
 if "analysis_result" not in st.session_state:
     st.session_state.analysis_result = None
@@ -222,7 +205,7 @@ is_connected = client.check_connection(auto_bootstrap=True)
 header_col1, header_col2, header_col3 = st.columns([2.2, 1, 1])
 with header_col1:
     st.markdown("### TEZCATL // Obsidian Mirror Graph Containment Engine")
-    st.caption("Multi-Hop Breach Discovery, Blast-Radius Calculus & Shadow-Graph Verification powered by FalkorDB")
+    st.caption("Track 01: Agents That Act on Connected Data | Multi-Hop Scrying, Centrality & Shadow-Mirror Sandbox powered by FalkorDB")
 
 with header_col2:
     if is_connected:
@@ -273,22 +256,23 @@ if st.session_state.stress_notification:
 
 
 # ==============================================================================
-# Live 5-Stage Pipeline Telemetry Inspector
+# Live 5-Stage Agent Telemetry Inspector (MCP Tools)
 # ==============================================================================
 
-pipeline_run: Optional[TezcatlPipelineRun] = st.session_state.pipeline_run
+stages: Optional[List[PipelineStageResult]] = st.session_state.pipeline_stages
 
-with st.expander("TEZCATL SOVEREIGN PIPELINE // 5-STAGE EXECUTION TELEMETRY", expanded=(pipeline_run is not None)):
-    if pipeline_run is None:
-        st.caption("Pipeline idle. Run discovery or enter a sovereign intent command to observe live stage telemetry.")
+with st.expander("TEZCATL TRACK 01 AGENT // 5-STAGE MCP EXECUTION TELEMETRY", expanded=(stages is not None)):
+    if stages is None:
+        st.caption("Agent idle. Trigger the agent or enter a natural language command to observe live MCP tool dispatch telemetry.")
     else:
+        total_lat = sum(s.execution_time_ms for s in stages)
         st.markdown(
-            f"**Total Pipeline Execution Latency:** `{pipeline_run.total_latency_ms:.2f} ms` | "
-            f"**Stages:** `{len(pipeline_run.stages)}` | "
-            f"**Mirror Sandbox Verification:** `{'PASS (0 Paths)' if pipeline_run.sandbox_verified else 'PENDING'}`"
+            f"**Total Agent Execution Latency:** `{total_lat:.2f} ms` | "
+            f"**MCP Tool Stages:** `{len(stages)}` | "
+            f"**Protocol:** `JSON-RPC 2.0 (MCP)`"
         )
-        stage_cols = st.columns(len(pipeline_run.stages))
-        for idx, (col, stage) in enumerate(zip(stage_cols, pipeline_run.stages)):
+        stage_cols = st.columns(len(stages))
+        for idx, (col, stage) in enumerate(zip(stage_cols, stages)):
             with col:
                 st.markdown(f"**Stage {idx+1}**")
                 status_color = "#3fb950" if stage.status == "SUCCESS" else ("#d29922" if stage.status == "SKIPPED" else "#f85149")
@@ -327,7 +311,7 @@ with col_left:
         st.markdown("**Protection Target:** Release Signing Authority Key")
 
     st.markdown("")
-    st.markdown("##### Sovereign Intent & Node Targeting")
+    st.markdown("##### Autonomous Intent & Node Targeting")
 
     # Natural Language Sovereign Intent Input
     raw_intent_query = st.text_input(
@@ -366,46 +350,25 @@ with col_left:
 
     selected_max_hops = st.slider("Traversal Hop Limit", min_value=1, max_value=8, value=8)
 
-    if st.button("RUN TEZCATL PIPELINE", type="primary", use_container_width=True):
+    if st.button("TRIGGER TRACK 01 AGENT", type="primary", use_container_width=True):
         try:
-            # Execute 5-Stage Sovereign Pipeline
-            p_run = st.session_state.pipeline.execute(
+            # Execute Sovereign Track 01 Agent
+            res, agent_stages = st.session_state.agent.run_investigation(
                 raw_query=raw_intent_query,
                 override_source=selected_source,
                 override_target=selected_target,
                 override_excludes=protected_entities,
                 override_hops=selected_max_hops,
-                run_sandbox=True,
-            )
-            st.session_state.pipeline_run = p_run
-
-            # Adapt for UI display
-            res = IncidentAnalysisResult(
-                source_id=p_run.context.resolved_source_id,
-                target_id=p_run.context.resolved_target_id,
-                discovered_paths=p_run.paths,
-                centrality_scores=p_run.centralities,
-                eligible_candidates=p_run.candidates,
-                recommended_plan=p_run.plan,
-                counterfactual_remaining_paths=0 if p_run.sandbox_verified else len(p_run.paths),
-                graph_is_contained=len(p_run.paths) == 0,
-                status_message="Analysis complete via Tezcatl 5-Stage Pipeline.",
-                telemetry=client.last_telemetry,
-                mirror_simulation={
-                    "mirror_graph_name": settings.falkordb_mirror_graph,
-                    "remaining_paths": 0 if p_run.sandbox_verified else len(p_run.paths),
-                    "simulation_time_ms": p_run.stages[3].execution_time_ms if len(p_run.stages) > 3 else 0.0,
-                },
-                pre_mitigation_hash=p_run.receipt.pre_mitigation_graph_hash if p_run.receipt else None,
-                audit_receipt=p_run.receipt,
+                run_mirror_sim=True,
             )
             st.session_state.analysis_result = res
+            st.session_state.pipeline_stages = agent_stages
             st.session_state.containment_status = "ANALYZED"
             st.session_state.post_verification_count = None
             st.rerun()
         except Exception as exc:
             st.session_state.containment_status = "ERROR"
-            st.error(f"[PIPELINE_ERROR] Execution failed: {exc}")
+            st.error(f"[AGENT_ERROR] Execution failed: {exc}")
 
     st.markdown("")
     st.markdown("<div class='secops-header'>JUDGE STRESS-TEST CONTROLS (LIVE MUTATION)</div>", unsafe_allow_html=True)
@@ -424,10 +387,10 @@ with col_left:
                     )
                     st.session_state.stress_notification = (
                         f"Injected active bypass edge ({selected_source} -> release_controller). "
-                        "Re-run pipeline to observe 4th path."
+                        "Re-trigger agent to observe 4th path."
                     )
                     st.session_state.analysis_result = None
-                    st.session_state.pipeline_run = None
+                    st.session_state.pipeline_stages = None
                     st.session_state.containment_status = "IDLE"
                     st.rerun()
                 except Exception as exc:
@@ -438,10 +401,10 @@ with col_left:
                 try:
                     client.remove_bypass_edge("E-STRESS-BYPASS")
                     st.session_state.stress_notification = (
-                        "Removed injected bypass edge. Re-run pipeline to observe return to baseline paths."
+                        "Removed injected bypass edge. Re-trigger agent to observe return to baseline paths."
                     )
                     st.session_state.analysis_result = None
-                    st.session_state.pipeline_run = None
+                    st.session_state.pipeline_stages = None
                     st.session_state.containment_status = "IDLE"
                     st.rerun()
                 except Exception as exc:
@@ -459,10 +422,10 @@ with col_left:
                 client.update_node_cost(cost_node, int(new_cost_val))
                 st.session_state.stress_notification = (
                     f"Updated {cost_node} cost to {new_cost_val} in FalkorDB. "
-                    "Re-run pipeline to observe cut-set cost recalculation."
+                    "Re-trigger agent to observe cut-set cost recalculation."
                 )
                 st.session_state.analysis_result = None
-                st.session_state.pipeline_run = None
+                st.session_state.pipeline_stages = None
                 st.session_state.containment_status = "IDLE"
                 st.rerun()
             except Exception as exc:
@@ -474,7 +437,7 @@ with col_left:
             try:
                 seed.seed_database(host=client.host, port=client.port, graph_name=client.graph_name)
                 st.session_state.analysis_result = None
-                st.session_state.pipeline_run = None
+                st.session_state.pipeline_stages = None
                 st.session_state.containment_status = "IDLE"
                 st.session_state.post_verification_count = None
                 st.session_state.audit_receipt = None
@@ -495,7 +458,7 @@ with col_center:
     res: Optional[IncidentAnalysisResult] = st.session_state.analysis_result
 
     if res is None:
-        st.info("Awaiting execution. Click 'RUN TEZCATL PIPELINE' to query live FalkorDB topology.")
+        st.info("Awaiting execution. Click 'TRIGGER TRACK 01 AGENT' to query live FalkorDB topology.")
     else:
         # Metrics summary
         m_col1, m_col2, m_col3 = st.columns(3)
@@ -718,8 +681,8 @@ with col_right:
 
             if execute_clicked:
                 try:
-                    # 1. Apply containment & generate cryptographic receipt
-                    mutation_res, receipt = st.session_state.service.apply_and_audit_containment(
+                    # 1. Apply containment & generate cryptographic receipt via agent
+                    mutation_res, receipt = st.session_state.agent.execute_containment(
                         source_id=selected_source,
                         target_id=selected_target,
                         expected_cut_ids=plan.selected_node_ids,
@@ -728,7 +691,7 @@ with col_right:
                     )
 
                     # 2. Fresh post-action verification query
-                    post_count = st.session_state.service.verify_containment_post_action(
+                    post_count = st.session_state.agent.verify_containment_post_action(
                         source_id=selected_source,
                         target_id=selected_target,
                         max_hops=selected_max_hops,
@@ -738,12 +701,13 @@ with col_right:
 
                     if post_count == 0:
                         st.session_state.containment_status = "CONTAINED"
-                        st.session_state.analysis_result = st.session_state.service.analyze_incident(
-                            source_id=selected_source,
-                            target_id=selected_target,
-                            max_hops=selected_max_hops,
+                        post_analysis, _ = st.session_state.agent.run_investigation(
+                            override_source=selected_source,
+                            override_target=selected_target,
+                            override_hops=selected_max_hops,
                             run_mirror_sim=False,
                         )
+                        st.session_state.analysis_result = post_analysis
                         st.rerun()
                     else:
                         st.session_state.containment_status = "ERROR"
