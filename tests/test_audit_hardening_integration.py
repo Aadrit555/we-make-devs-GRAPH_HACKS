@@ -177,3 +177,4 @@ def test_full_containment_lifecycle_and_clean_reset():
     seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=GRAPH_NAME)
     reset_paths = service.client.discover_attack_paths("ci_runner")
     assert len(reset_paths) == 3
+
