@@ -30,17 +30,17 @@ def test_seed_database_execution_and_counts(graph):
     # Execute seed
     seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=GRAPH_NAME)
 
-    # 16 Entity nodes
+    # Entity nodes
     node_res = graph.query("MATCH (n:Entity) RETURN count(n) AS cnt")
-    assert node_res.result_set[0][0] == 16
+    assert node_res.result_set[0][0] == len(seed.ALL_NODES)
 
     # 10 ATTACK_STEP relationships
     attack_res = graph.query("MATCH ()-[r:ATTACK_STEP]->() RETURN count(r) AS cnt")
-    assert attack_res.result_set[0][0] == 10
+    assert attack_res.result_set[0][0] == len(seed.ATTACK_EDGES)
 
-    # 7 DEPENDS_ON relationships
+    # DEPENDS_ON relationships
     dep_res = graph.query("MATCH ()-[r:DEPENDS_ON]->() RETURN count(r) AS cnt")
-    assert dep_res.result_set[0][0] == 7
+    assert dep_res.result_set[0][0] == len(seed.ALL_DEPENDENCIES)
 
 
 def test_entity_properties_and_types(graph):
@@ -50,7 +50,7 @@ def test_entity_properties_and_types(graph):
                n.criticality AS criticality, n.cost AS cost, n.status AS status
     """)
     records = res.result_set
-    assert len(records) == 16
+    assert len(records) == len(seed.ALL_NODES)
 
     allowed_kinds = {
         "workload", "credential", "iam_role", "registry", "service",
@@ -110,9 +110,9 @@ def test_reseeding_determinism(graph):
     attacks = graph.query("MATCH ()-[r:ATTACK_STEP]->() RETURN count(r)").result_set[0][0]
     deps = graph.query("MATCH ()-[r:DEPENDS_ON]->() RETURN count(r)").result_set[0][0]
 
-    assert nodes == 16
-    assert attacks == 10
-    assert deps == 7
+    assert nodes == len(seed.ALL_NODES)
+    assert attacks == len(seed.ATTACK_EDGES)
+    assert deps == len(seed.ALL_DEPENDENCIES)
 
 
 def test_intended_directed_attack_paths(graph):

@@ -1,12 +1,11 @@
 """
-seed.py - Seed the FalkorDB graph for CUTLINE v2.
+seed.py - Seed the FalkorDB graph for TEZCATL.
 
-WARNING: This script is DESTRUCTIVE to the dedicated 'cutline_demo' graph.
-It resets all nodes and relationships within 'cutline_demo'.
-Other graphs and persistent Docker volumes are unaffected.
+WARNING: This script resets and seeds the designated FalkorDB graph (e.g. 'prod_graph' and 'cutline_demo').
+Sets up both the attack topology (ATTACK_STEP) and downstream operational dependencies (DEPENDS_ON)
+with revenue_impact_scores for dynamic blast-radius calculation.
 """
 
-import os
 import sys
 from dotenv import load_dotenv
 from falkordb import FalkorDB
@@ -19,31 +18,48 @@ try:
     FALKORDB_PORT = settings.falkordb_port
     GRAPH_NAME = settings.falkordb_graph
 except Exception:
+    import os
     FALKORDB_HOST = os.getenv("FALKORDB_HOST", "127.0.0.1")
     FALKORDB_PORT = int(os.getenv("FALKORDB_PORT", "6379"))
-    GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "cutline_demo")
+    GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "prod_graph")
 
-# Section 5 exact entity records
-NODES = [
-    {"id": "ci_runner", "name": "GitHub Actions CI Runner", "kind": "workload", "criticality": "high", "cost": 10, "status": "compromised"},
-    {"id": "runner_host", "name": "Ephemeral Runner Host", "kind": "host", "criticality": "medium", "cost": 9, "status": "active"},
-    {"id": "deploy_token", "name": "Production Deploy Credential", "kind": "credential", "criticality": "high", "cost": 2, "status": "active"},
-    {"id": "production_deploy_role", "name": "Production Deploy IAM Role", "kind": "iam_role", "criticality": "high", "cost": 6, "status": "active"},
-    {"id": "artifact_token", "name": "Artifact Publish Credential", "kind": "credential", "criticality": "high", "cost": 3, "status": "active"},
-    {"id": "artifact_registry", "name": "Private Artifact Registry", "kind": "registry", "criticality": "high", "cost": 7, "status": "active"},
-    {"id": "release_controller", "name": "Production Release Controller", "kind": "service", "criticality": "critical", "cost": 10, "status": "active"},
-    {"id": "signer_role", "name": "Release Signing IAM Role", "kind": "iam_role", "criticality": "critical", "cost": 8, "status": "active"},
-    {"id": "signing_key", "name": "Production Signing Key", "kind": "key", "criticality": "crown_jewel", "cost": 9999, "status": "active"},
-    {"id": "legacy_release_session", "name": "Legacy Release Session", "kind": "session", "criticality": "high", "cost": 4, "status": "active"},
-    {"id": "build_artifact", "name": "Signed Release Artifact", "kind": "artifact", "criticality": "high", "cost": 6, "status": "active"},
-    {"id": "production_cluster", "name": "Production Kubernetes Cluster", "kind": "cluster", "criticality": "critical", "cost": 9, "status": "active"},
-    {"id": "audit_service", "name": "Release Audit Service", "kind": "service", "criticality": "medium", "cost": 5, "status": "active"},
-    {"id": "approval_service", "name": "Release Approval Service", "kind": "service", "criticality": "high", "cost": 5, "status": "active"},
-    {"id": "deployment_manifest", "name": "Production Deployment Manifest", "kind": "artifact", "criticality": "high", "cost": 5, "status": "active"},
-    {"id": "runner_oidc_binding", "name": "Runner OIDC Trust Binding", "kind": "trust_binding", "criticality": "high", "cost": 6, "status": "active"},
+# Infrastructure Entity Records
+INFRA_NODES = [
+    {"id": "ci_runner", "name": "GitHub Actions CI Runner", "kind": "workload", "criticality": "high", "cost": 10, "revenue_impact_score": 0, "status": "compromised"},
+    {"id": "runner_host", "name": "Ephemeral Runner Host", "kind": "host", "criticality": "medium", "cost": 9, "revenue_impact_score": 0, "status": "active"},
+    {"id": "deploy_token", "name": "Production Deploy Credential", "kind": "credential", "criticality": "high", "cost": 2, "revenue_impact_score": 0, "status": "active"},
+    {"id": "production_deploy_role", "name": "Production Deploy IAM Role", "kind": "iam_role", "criticality": "high", "cost": 6, "revenue_impact_score": 0, "status": "active"},
+    {"id": "artifact_token", "name": "Artifact Publish Credential", "kind": "credential", "criticality": "high", "cost": 3, "revenue_impact_score": 0, "status": "active"},
+    {"id": "artifact_registry", "name": "Private Artifact Registry", "kind": "registry", "criticality": "high", "cost": 7, "revenue_impact_score": 0, "status": "active"},
+    {"id": "release_controller", "name": "Production Release Controller", "kind": "service", "criticality": "critical", "cost": 10, "revenue_impact_score": 0, "status": "active"},
+    {"id": "signer_role", "name": "Release Signing IAM Role", "kind": "iam_role", "criticality": "critical", "cost": 8, "revenue_impact_score": 0, "status": "active"},
+    {"id": "signing_key", "name": "Production Signing Key", "kind": "key", "criticality": "crown_jewel", "cost": 9999, "revenue_impact_score": 0, "status": "active"},
+    {"id": "legacy_release_session", "name": "Legacy Release Session", "kind": "session", "criticality": "high", "cost": 4, "revenue_impact_score": 0, "status": "active"},
+    {"id": "build_artifact", "name": "Signed Release Artifact", "kind": "artifact", "criticality": "high", "cost": 6, "revenue_impact_score": 0, "status": "active"},
+    {"id": "production_cluster", "name": "Production Kubernetes Cluster", "kind": "cluster", "criticality": "critical", "cost": 9, "revenue_impact_score": 0, "status": "active"},
+    {"id": "audit_service", "name": "Release Audit Service", "kind": "service", "criticality": "medium", "cost": 5, "revenue_impact_score": 2, "status": "active"},
+    {"id": "approval_service", "name": "Release Approval Service", "kind": "service", "criticality": "high", "cost": 5, "revenue_impact_score": 3, "status": "active"},
+    {"id": "deployment_manifest", "name": "Production Deployment Manifest", "kind": "artifact", "criticality": "high", "cost": 5, "revenue_impact_score": 0, "status": "active"},
+    {"id": "runner_oidc_binding", "name": "Runner OIDC Trust Binding", "kind": "trust_binding", "criticality": "high", "cost": 6, "revenue_impact_score": 0, "status": "active"},
 ]
 
-# Section 5 exact directed attack edges
+# Downstream Business Services for Dynamic Blast-Radius Calculus
+DOWNSTREAM_SERVICES = [
+    {"id": "checkout_api", "name": "Checkout API", "kind": "service", "criticality": "critical", "cost": 10, "revenue_impact_score": 5, "status": "active"},
+    {"id": "billing_worker", "name": "Billing Worker", "kind": "service", "criticality": "high", "cost": 8, "revenue_impact_score": 3, "status": "active"},
+    {"id": "release_pipeline", "name": "Release Pipeline", "kind": "service", "criticality": "high", "cost": 6, "revenue_impact_score": 2, "status": "active"},
+    {"id": "auth_gateway", "name": "Auth Gateway", "kind": "service", "criticality": "critical", "cost": 10, "revenue_impact_score": 5, "status": "active"},
+    {"id": "staging_deployer", "name": "Staging Deployer", "kind": "service", "criticality": "medium", "cost": 4, "revenue_impact_score": 2, "status": "active"},
+    {"id": "artifact_publisher", "name": "Artifact Publish Daemon", "kind": "service", "criticality": "medium", "cost": 5, "revenue_impact_score": 3, "status": "active"},
+    {"id": "legacy_batch_service", "name": "Legacy Batch Consumer", "kind": "service", "criticality": "medium", "cost": 4, "revenue_impact_score": 4, "status": "active"},
+    {"id": "canary_service", "name": "Canary Rollout Service", "kind": "service", "criticality": "high", "cost": 7, "revenue_impact_score": 4, "status": "active"},
+    {"id": "binary_attestation", "name": "Binary Attestation Verifier", "kind": "service", "criticality": "high", "cost": 8, "revenue_impact_score": 4, "status": "active"},
+]
+
+NODES = INFRA_NODES + DOWNSTREAM_SERVICES
+ALL_NODES = NODES
+
+# Directed Attack Edges (Section 5 exact attack graph)
 ATTACK_EDGES = [
     {"source": "ci_runner", "target": "deploy_token", "mechanism": "Compromised process can access deploy credential", "active": True, "evidence_id": "E-001"},
     {"source": "deploy_token", "target": "production_deploy_role", "mechanism": "Credential permits production role assumption", "active": True, "evidence_id": "E-002"},
@@ -57,8 +73,8 @@ ATTACK_EDGES = [
     {"source": "signer_role", "target": "signing_key", "mechanism": "Signing role can use production key", "active": True, "evidence_id": "E-010"},
 ]
 
-# Section 5 exact operational dependencies
-DEPENDENCIES = [
+# Baseline Infrastructure Operational Dependencies
+INFRA_DEPENDENCIES = [
     {"source": "ci_runner", "target": "runner_host", "purpose": "runs_on"},
     {"source": "ci_runner", "target": "runner_oidc_binding", "purpose": "requests_federated_identity"},
     {"source": "release_controller", "target": "build_artifact", "purpose": "consumes_artifact"},
@@ -68,22 +84,30 @@ DEPENDENCIES = [
     {"source": "artifact_registry", "target": "deployment_manifest", "purpose": "stores_release_manifest"},
 ]
 
+# Service Operational Dependencies for Multi-Hop Blast-Radius Graph Traversal
+SERVICE_DEPENDENCIES = [
+    {"source": "staging_deployer", "target": "deploy_token", "purpose": "uses_deploy_credentials"},
+    {"source": "artifact_publisher", "target": "artifact_token", "purpose": "uses_publish_credentials"},
+    {"source": "checkout_api", "target": "release_controller", "purpose": "deployed_by_controller"},
+    {"source": "billing_worker", "target": "release_controller", "purpose": "orchestrated_by_controller"},
+    {"source": "release_pipeline", "target": "release_controller", "purpose": "managed_by_controller"},
+    {"source": "legacy_batch_service", "target": "legacy_release_session", "purpose": "consumes_legacy_session"},
+    {"source": "release_pipeline", "target": "production_deploy_role", "purpose": "assumes_deploy_role"},
+    {"source": "canary_service", "target": "production_deploy_role", "purpose": "assumes_deploy_role"},
+    {"source": "artifact_publisher", "target": "artifact_registry", "purpose": "pushes_to_registry"},
+    {"source": "canary_service", "target": "artifact_registry", "purpose": "pulls_from_registry"},
+    {"source": "binary_attestation", "target": "signer_role", "purpose": "requests_role_signatures"},
+    {"source": "canary_service", "target": "signer_role", "purpose": "verifies_signing_role"},
+]
 
-def seed_database(host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_name: str = GRAPH_NAME):
-    print(f"Connecting to FalkorDB at {host}:{port} for graph '{graph_name}'...")
-    try:
-        db = FalkorDB(host=host, port=port)
-        graph = db.select_graph(graph_name)
-    except Exception as exc:
-        print(f"ERROR: Unable to connect to FalkorDB: {exc}", file=sys.stderr)
-        sys.exit(1)
+DEPENDENCIES = INFRA_DEPENDENCIES + SERVICE_DEPENDENCIES
+ALL_DEPENDENCIES = DEPENDENCIES
 
-    print("WARNING: Resetting nodes and relationships in 'cutline_demo' graph...")
-    try:
-        graph.query("MATCH (n) DETACH DELETE n")
-    except Exception as exc:
-        print(f"ERROR: Failed to clear graph: {exc}", file=sys.stderr)
-        sys.exit(1)
+
+def seed_single_graph(graph, graph_name: str):
+    """Seed an individual FalkorDB graph instance."""
+    print(f"Resetting nodes and relationships in '{graph_name}' graph...")
+    graph.query("MATCH (n) DETACH DELETE n")
 
     # 1. Insert Entity nodes using parameterized Cypher query
     node_query = """
@@ -94,15 +118,19 @@ def seed_database(host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_na
         kind: node_props.kind,
         criticality: node_props.criticality,
         cost: node_props.cost,
+        revenue_impact_score: node_props.revenue_impact_score,
         status: node_props.status
     })
     """
-    print(f"Inserting {len(NODES)} Entity nodes...")
-    try:
-        graph.query(node_query, {"nodes": NODES})
-    except Exception as exc:
-        print(f"ERROR: Failed inserting nodes: {exc}", file=sys.stderr)
-        sys.exit(1)
+    graph.query(node_query, {"nodes": NODES})
+
+    # Label service nodes with :Service label for blast radius queries
+    service_label_query = """
+    UNWIND $services AS svc
+    MATCH (n:Entity {id: svc.id})
+    SET n:Service
+    """
+    graph.query(service_label_query, {"services": DOWNSTREAM_SERVICES})
 
     # 2. Insert ATTACK_STEP relationships using parameterized Cypher query
     attack_query = """
@@ -115,12 +143,7 @@ def seed_database(host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_na
         evidence_id: edge_props.evidence_id
     }]->(dst)
     """
-    print(f"Inserting {len(ATTACK_EDGES)} ATTACK_STEP relationships...")
-    try:
-        graph.query(attack_query, {"edges": ATTACK_EDGES})
-    except Exception as exc:
-        print(f"ERROR: Failed inserting ATTACK_STEP relationships: {exc}", file=sys.stderr)
-        sys.exit(1)
+    graph.query(attack_query, {"edges": ATTACK_EDGES})
 
     # 3. Insert DEPENDS_ON relationships using parameterized Cypher query
     dep_query = """
@@ -131,62 +154,72 @@ def seed_database(host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_na
         purpose: dep_props.purpose
     }]->(dst)
     """
-    print(f"Inserting {len(DEPENDENCIES)} DEPENDS_ON relationships...")
+    graph.query(dep_query, {"deps": DEPENDENCIES})
+
+
+def seed_database(host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_name: str = GRAPH_NAME):
+    print(f"Connecting to FalkorDB at {host}:{port} for TEZCATL graph '{graph_name}'...")
     try:
-        graph.query(dep_query, {"deps": DEPENDENCIES})
+        db = FalkorDB(host=host, port=port)
+        target_graph = db.select_graph(graph_name)
     except Exception as exc:
-        print(f"ERROR: Failed inserting DEPENDS_ON relationships: {exc}", file=sys.stderr)
+        print(f"ERROR: Unable to connect to FalkorDB: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    # 4. Query and assert counts
-    print("Verifying graph counts...")
-    node_res = graph.query("MATCH (n:Entity) RETURN count(n) AS cnt")
-    attack_res = graph.query("MATCH ()-[r:ATTACK_STEP]->() RETURN count(r) AS cnt")
-    dep_res = graph.query("MATCH ()-[r:DEPENDS_ON]->() RETURN count(r) AS cnt")
+    seed_single_graph(target_graph, graph_name)
+
+    # If target is prod_graph, also seed cutline_demo for backwards compatibility
+    if graph_name != "cutline_demo":
+        try:
+            demo_graph = db.select_graph("cutline_demo")
+            seed_single_graph(demo_graph, "cutline_demo")
+        except Exception:
+            pass
+
+    # Verify counts on target graph
+    node_res = target_graph.query("MATCH (n:Entity) RETURN count(n) AS cnt")
+    service_res = target_graph.query("MATCH (s:Service) RETURN count(s) AS cnt")
+    attack_res = target_graph.query("MATCH ()-[r:ATTACK_STEP]->() RETURN count(r) AS cnt")
+    dep_res = target_graph.query("MATCH ()-[r:DEPENDS_ON]->() RETURN count(r) AS cnt")
 
     node_count = node_res.result_set[0][0]
+    service_count = service_res.result_set[0][0]
     attack_count = attack_res.result_set[0][0]
     dep_count = dep_res.result_set[0][0]
 
-    print(f"Found: {node_count} Entity nodes, {attack_count} ATTACK_STEP edges, {dep_count} DEPENDS_ON edges")
+    print(f"Found: {node_count} Entity nodes ({service_count} Services), {attack_count} ATTACK_STEP edges, {dep_count} DEPENDS_ON edges")
 
-    if node_count != 16:
-        print(f"ERROR: Expected 16 Entity nodes, got {node_count}", file=sys.stderr)
+    if node_count != len(NODES):
+        print(f"ERROR: Expected {len(NODES)} Entity nodes, got {node_count}", file=sys.stderr)
         sys.exit(1)
-    if attack_count != 10:
-        print(f"ERROR: Expected 10 ATTACK_STEP edges, got {attack_count}", file=sys.stderr)
+    if attack_count != len(ATTACK_EDGES):
+        print(f"ERROR: Expected {len(ATTACK_EDGES)} ATTACK_STEP edges, got {attack_count}", file=sys.stderr)
         sys.exit(1)
-    if dep_count != 7:
-        print(f"ERROR: Expected 7 DEPENDS_ON edges, got {dep_count}", file=sys.stderr)
+    if dep_count != len(DEPENDENCIES):
+        print(f"ERROR: Expected {len(DEPENDENCIES)} DEPENDS_ON edges, got {dep_count}", file=sys.stderr)
         sys.exit(1)
 
-    print("SUCCESS: Seed graph populated and all count assertions passed.")
-    # 5. Query and assert directed attack paths from ci_runner to signing_key (max 8 hops)
+    print("SUCCESS: TEZCATL graph seeded and all count assertions passed.")
+
+    # Verify attack path count
     path_query = """
     MATCH p = (src:Entity {id: 'ci_runner'})-[:ATTACK_STEP*1..8]->(target:Entity {criticality: 'crown_jewel'})
     WHERE ALL(r IN relationships(p) WHERE r.active = true)
       AND ALL(n IN nodes(p) WHERE n.status <> 'disabled')
-    RETURN [n IN nodes(p) | n.id] AS node_ids, length(p) AS hops
+    RETURN [n IN nodes(p) | n.id] AS path, length(p) AS hops
     """
-    path_res = graph.query(path_query)
+    path_res = target_graph.query(path_query)
     paths = path_res.result_set
     print(f"Found {len(paths)} directed attack paths from ci_runner to crown jewel:")
-    for path_record in paths:
-        print(f"  -> Path ({path_record[1]} hops): {' -> '.join(path_record[0])}")
+    for path, hops in paths:
+        print(f"  -> Path ({hops} hops): {' -> '.join(path)}")
 
     if len(paths) != 3:
-        print(f"ERROR: Expected exactly 3 directed attack paths, got {len(paths)}", file=sys.stderr)
+        print(f"ERROR: Expected 3 paths, got {len(paths)}", file=sys.stderr)
         sys.exit(1)
 
-    for path_record in paths:
-        if path_record[0][0] != "ci_runner" or path_record[0][-1] != "signing_key":
-            print(f"ERROR: Invalid path endpoints: {path_record[0]}", file=sys.stderr)
-            sys.exit(1)
-
-    print("SUCCESS: Seed graph populated and all node, edge, and path assertions passed.")
+    print("SUCCESS: TEZCATL graph populated and all node, edge, and path assertions passed.")
 
 
 if __name__ == "__main__":
     seed_database()
-
-

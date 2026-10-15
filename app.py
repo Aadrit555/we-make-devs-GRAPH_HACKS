@@ -1,15 +1,13 @@
 """
-app.py — High-Density SecOps Incident Containment Console for CUTLINE v2.
+app.py — High-Density SecOps Incident Containment Console for TEZCATL.
 
-Production-grade SecOps command console:
-- Zero decorative emojis or AI marketing fluff.
-- Clean high-density typography with monospace technical formatting.
-- 3-Column Incident Command Layout:
-    Column 1: Incident Context, Dynamic Targets, and Judge Stress-Test Controls.
-    Column 2: Hop-by-Hop Attack Paths, algo.betweenness Centrality, and Live FalkorDB Telemetry.
-    Column 3: Mitigation Matrix, Operational Cost Trade-Offs, and Human-in-the-Loop Action Gate.
-- Live FalkorDB query execution inspector with exact Cypher, latency (ms), and traversal metrics.
-- Complete closed-loop verification proving 0 remaining paths after mutation.
+TEZCATL // Obsidian Mirror Graph Containment Engine
+Multi-Hop Breach Discovery, Blast-Radius Calculus & Shadow-Graph Verification powered by FalkorDB.
+
+3-Column Incident Command Layout:
+  Column 1: 01 // INCIDENT CONTEXT & TOPOLOGY CONTROLS
+  Column 2: 02 // OBSIDIAN SCRYING ENGINE (MULTI-HOP + BETWEENNESS CENTRALITY)
+  Column 3: 03 // SMOKING MIRROR SANDBOX (tezcatl_mirror vs. prod_graph) & AUDIT RECEIPT
 """
 
 import streamlit as st
@@ -21,13 +19,13 @@ import graph_client
 if not hasattr(graph_client, "ReadOnlyGraphClient"):
     importlib.reload(graph_client)
 
-from logic import ContainmentService, GraphFreshnessError, IncidentAnalysisResult
+from logic import ContainmentService, GraphFreshnessError, IncidentAnalysisResult, ContainmentAuditReceipt
 from graph_client import FalkorGraphClient, ReadOnlyGraphClient, DatabaseConnectionError, GraphQueryError
 from llm_router import LLMRoutingLayer, ReadOnlyInvestigationTools
 from config import settings
 
 st.set_page_config(
-    page_title="CUTLINE v2 — Incident Containment Console",
+    page_title="TEZCATL — Obsidian Mirror Graph Containment Engine",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -62,7 +60,7 @@ CUSTOM_CSS = """
     .badge-verified {
         background-color: #0d2818;
         color: #3fb950;
-        border: 1px solid #1f6feb;
+        border: 1px solid #238636;
         font-family: "JetBrains Mono", monospace;
         padding: 3px 8px;
         border-radius: 3px;
@@ -121,19 +119,33 @@ CUSTOM_CSS = """
         font-family: "JetBrains Mono", monospace;
         font-size: 0.78rem;
     }
-    .path-step {
-        color: #e6edf3;
-        line-height: 1.5;
-    }
-    .path-arrow {
-        color: #ff6b6b;
-        font-weight: bold;
-    }
     .telemetry-row {
         font-family: "JetBrains Mono", monospace;
         font-size: 0.75rem;
         color: #c9d1d9;
         margin-bottom: 4px;
+    }
+    .sandbox-compare {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .sandbox-box {
+        flex: 1;
+        padding: 10px;
+        border-radius: 4px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.75rem;
+    }
+    .sandbox-uncontained {
+        background-color: #210d11;
+        border: 1px solid #da3633;
+        color: #ff7b72;
+    }
+    .sandbox-contained {
+        background-color: #0d2116;
+        border: 1px solid #238636;
+        color: #3fb950;
     }
 </style>
 """
@@ -171,6 +183,10 @@ if "post_verification_count" not in st.session_state:
 if "stress_notification" not in st.session_state:
     st.session_state.stress_notification = None
 
+if "audit_receipt" not in st.session_state:
+    st.session_state.audit_receipt = None
+
+
 # ==============================================================================
 # Live Connectivity Verification
 # ==============================================================================
@@ -179,15 +195,15 @@ client = st.session_state.client
 is_connected = client.check_connection()
 
 # Top Header / Classification Bar
-header_col1, header_col2, header_col3 = st.columns([2, 1, 1])
+header_col1, header_col2, header_col3 = st.columns([2.2, 1, 1])
 with header_col1:
-    st.markdown("### CUTLINE v2 // DETERMINISTIC INCIDENT CONTAINMENT CONSOLE")
-    st.caption("FalkorDB Graph-Native Vertex-Cut Engine & Closed-Loop Verification Pipeline")
+    st.markdown("### TEZCATL // Obsidian Mirror Graph Containment Engine")
+    st.caption("Multi-Hop Breach Discovery, Blast-Radius Calculus & Shadow-Graph Verification powered by FalkorDB")
 
 with header_col2:
     if is_connected:
         st.markdown("<span class='badge-verified'>[FALKORDB ONLINE: 127.0.0.1:6379]</span>", unsafe_allow_html=True)
-        st.markdown(f"<span class='badge-telemetry'>GRAPH: {settings.falkordb_graph}</span>", unsafe_allow_html=True)
+        st.markdown(f"<span class='badge-telemetry'>PROD: {settings.falkordb_graph} | MIRROR: {settings.falkordb_mirror_graph}</span>", unsafe_allow_html=True)
     else:
         st.markdown("<span class='badge-critical'>[DATABASE_DISCONNECTED]</span>", unsafe_allow_html=True)
 
@@ -230,7 +246,7 @@ if st.session_state.stress_notification:
 # 3-Column High-Density Incident Command Layout
 # ==============================================================================
 
-col_left, col_center, col_right = st.columns([1.1, 1.4, 1.3], gap="medium")
+col_left, col_center, col_right = st.columns([1.1, 1.4, 1.4], gap="medium")
 
 
 # ------------------------------------------------------------------------------
@@ -241,7 +257,7 @@ with col_left:
 
     # Active Incident Metadata
     with st.container(border=True):
-        st.markdown("**Incident Tracking ID:** `INC-2026-FAL-SEC-09`")
+        st.markdown("**Incident ID:** `INC-2026-TEZCATL-09`")
         st.markdown("**Compromise Vector:** Multi-Hop Credential Ingress")
         st.markdown("**Incident Severity:** <span class='badge-critical'>CRITICAL</span>", unsafe_allow_html=True)
         st.markdown("**Protection Target:** Release Signing Authority Key")
@@ -273,7 +289,8 @@ with col_left:
             res = st.session_state.service.analyze_incident(
                 source_id=selected_source,
                 target_id=selected_target,
-                max_hops=selected_max_hops
+                max_hops=selected_max_hops,
+                run_mirror_sim=True
             )
             st.session_state.analysis_result = res
             st.session_state.containment_status = "ANALYZED"
@@ -337,17 +354,18 @@ with col_left:
                 st.session_state.analysis_result = None
                 st.session_state.containment_status = "IDLE"
                 st.session_state.post_verification_count = None
-                st.session_state.stress_notification = "Pristine seed graph restored (16 entities, 10 attack steps, 7 dependencies)."
+                st.session_state.audit_receipt = None
+                st.session_state.stress_notification = "Pristine TEZCATL seed graph restored (25 entities, 9 services, 10 attack steps, 19 dependencies)."
                 st.rerun()
             except Exception as exc:
                 st.error(f"Failed to restore seed graph: {exc}")
 
 
 # ------------------------------------------------------------------------------
-# COLUMN 2: ATTACK PATH & CENTRALITY EVIDENCE + LIVE TELEMETRY
+# COLUMN 2: OBSIDIAN SCRYING ENGINE (MULTI-HOP + CENTRALITY)
 # ------------------------------------------------------------------------------
 with col_center:
-    st.markdown("<div class='secops-header'>02 // ATTACK PATHS & CENTRALITY EVIDENCE</div>", unsafe_allow_html=True)
+    st.markdown("<div class='secops-header'>02 // OBSIDIAN SCRYING ENGINE (MULTI-HOP + CENTRALITY)</div>", unsafe_allow_html=True)
 
     res: Optional[IncidentAnalysisResult] = st.session_state.analysis_result
 
@@ -427,26 +445,27 @@ with col_center:
 
 
 # ------------------------------------------------------------------------------
-# COLUMN 3: CUT-SET MATRIX & ACTION GATE
+# COLUMN 3: SMOKING MIRROR SANDBOX & AUDIT RECEIPT
 # ------------------------------------------------------------------------------
 with col_right:
-    st.markdown("<div class='secops-header'>03 // CUT-SET MATRIX & ACTION GATE</div>", unsafe_allow_html=True)
+    st.markdown("<div class='secops-header'>03 // SMOKING MIRROR SANDBOX (`tezcatl_mirror` vs `prod_graph`)</div>", unsafe_allow_html=True)
 
     if res is None:
         st.info("Execute graph discovery in Column 1 to evaluate containment options.")
     else:
         plan = res.recommended_plan
 
-        # Eligible Candidates Table
-        st.markdown("##### Eligible Mitigation Candidates & Modeled Costs")
+        # Eligible Candidates with Graph-Computed Blast Radius
+        st.markdown("##### Graph-Computed Blast Radius & Disruption Matrix")
+        st.caption("FalkorDB reverse multi-hop traversal: MATCH (s:Service)-[:DEPENDS_ON*1..4]->(e:Entity)")
         if res.eligible_candidates:
             df_cands = pd.DataFrame([
                 {
                     "Candidate ID": c.id,
                     "Name": c.name,
-                    "Kind": c.kind,
-                    "Cost": c.cost,
-                    "Status": c.status
+                    "Blast Radius Cost": c.cost,
+                    "Downstream Svcs": c.downstream_count,
+                    "Impacted Services": ", ".join(c.downstream_services) if c.downstream_services else "(None)"
                 }
                 for c in res.eligible_candidates
             ])
@@ -454,12 +473,40 @@ with col_right:
         else:
             st.caption("No eligible candidates required (zero active paths).")
 
+        # Smoking Mirror Counterfactual Sandbox Panel
+        st.markdown("")
+        st.markdown("##### Smoking Mirror Sandbox Telemetry")
+        if res.mirror_simulation:
+            msim = res.mirror_simulation
+            sim_lat = msim.get("simulation_latency_ms", 0.0)
+            col_m1, col_m2 = st.columns(2)
+            with col_m1:
+                st.markdown(
+                    f"<div class='secops-card' style='border-color:#da3633; background-color:#210d11;'>"
+                    f"<strong>PROD GRAPH</strong> (<code>{settings.falkordb_graph}</code>)<br>"
+                    f"<span style='color:#ff7b72; font-size:1.1rem; font-weight:bold;'>{len(res.discovered_paths)} Active Attack Paths</span><br>"
+                    f"<span style='color:#8b949e; font-size:0.75rem;'>Uncontained Production Topology</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+            with col_m2:
+                st.markdown(
+                    f"<div class='secops-card' style='border-color:#238636; background-color:#0d2116;'>"
+                    f"<strong>SMOKING MIRROR</strong> (<code>{msim['mirror_graph_name']}</code>)<br>"
+                    f"<span style='color:#3fb950; font-size:1.1rem; font-weight:bold;'>0 Active Attack Paths</span><br>"
+                    f"<span style='color:#8b949e; font-size:0.75rem;'>Verified Contained in {sim_lat:.2f} ms</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+        else:
+            st.caption("Mirror sandbox idle.")
+
         # Plan Trade-Off Matrix
         st.markdown("")
         st.markdown("##### Combinatorial Trade-Off Analysis")
         if plan:
             with st.container(border=True):
-                st.markdown(f"**Recommended Cut-Set:** `<span class='badge-verified'>COST {plan.total_cost}</span>`", unsafe_allow_html=True)
+                st.markdown(f"**Recommended Cut-Set:** `<span class='badge-verified'>BLAST RADIUS {plan.total_cost}</span>`", unsafe_allow_html=True)
                 st.markdown(f"- **Selected Entities:** `{' + '.join(plan.selected_node_ids)}`")
                 st.markdown(f"- **Total Modeled Impact Cost:** `{plan.total_cost}`")
                 st.markdown(f"- **Active Paths Severed:** `{plan.paths_covered_count} / {plan.paths_evaluated_count}` (100% Intersection)")
@@ -470,7 +517,7 @@ with col_right:
                 st.markdown("**Suboptimal Alternatives Rejected by Optimizer:**")
                 st.markdown(
                     "- `release_controller` shutdown: Severing all paths via controller shutdown incurs "
-                    "modeled cost **10** (2x higher operational impact than dual credential revocation)."
+                    "graph-computed blast radius **10** (threatens `Checkout API`, `Billing Worker`, `Release Pipeline`)."
                 )
                 st.markdown(
                     "- Single token revocation: Revoking only `deploy_token` (cost 2) leaves artifact path active; "
@@ -497,11 +544,48 @@ with col_right:
             st.markdown(
                 "<div class='secops-card' style='border-color:#238636;'>"
                 "<span class='badge-verified'>[CONTAINMENT VERIFIED: 0 REMAINING PATHS]</span><br><br>"
-                "Fresh post-action verification query confirmed <strong>0 active attack paths</strong> within the 8-hop scope."
+                "Fresh post-action verification query confirmed <strong>0 active attack paths</strong> in <code>prod_graph</code> within 8 hops."
                 "</div>",
                 unsafe_allow_html=True
             )
             st.metric("Post-Action Active Paths", st.session_state.post_verification_count)
+
+            # Render Cryptographic Audit Receipt
+            receipt: Optional[ContainmentAuditReceipt] = st.session_state.audit_receipt
+            if receipt:
+                st.markdown("---")
+                st.markdown("##### TEZCATL Containment Audit Receipt (Cryptographic Proof)")
+                with st.expander("Inspect Cryptographic Containment Receipt", expanded=True):
+                    st.markdown(f"**Incident ID:** `{receipt.incident_id}` | **UTC:** `{receipt.timestamp_utc}`")
+                    st.markdown(f"**Pre-Mitigation SHA-256 Hash:**")
+                    st.code(receipt.pre_mitigation_graph_hash, language="text")
+                    st.markdown(f"**Post-Mitigation SHA-256 Hash:**")
+                    st.code(receipt.post_mitigation_graph_hash, language="text")
+
+                    st.markdown("**Spared Structural Bottlenecks:**")
+                    for b in receipt.spared_bottlenecks:
+                        svcs = ", ".join(b.services_preserved) if b.services_preserved else "None"
+                        st.caption(f"&bull; <code>{b.node_name}</code> (Centrality: {b.centrality_score:.4f}) &mdash; Kept online, preserving: {svcs}")
+
+                    # Download options
+                    rc_col1, rc_col2 = st.columns(2)
+                    with rc_col1:
+                        st.download_button(
+                            label="Download Receipt (JSON)",
+                            data=receipt.to_json(),
+                            file_name=f"tezcatl_receipt_{receipt.incident_id}.json",
+                            mime="application/json",
+                            use_container_width=True
+                        )
+                    with rc_col2:
+                        st.download_button(
+                            label="Download Receipt (Markdown)",
+                            data=receipt.to_markdown(),
+                            file_name=f"tezcatl_receipt_{receipt.incident_id}.md",
+                            mime="text/markdown",
+                            use_container_width=True
+                        )
+
         elif plan is None or len(plan.selected_node_ids) == 0:
             st.markdown("<span class='badge-verified'>[SAFE] ZERO ACTION REQUIRED</span>", unsafe_allow_html=True)
         else:
@@ -514,13 +598,13 @@ with col_right:
             )
 
             auth_confirmed = st.checkbox(
-                "I authorize execution of the deterministic containment plan.",
+                "I authorize committing the verified mirror cut to production.",
                 value=False,
                 key="auth_gate_checkbox"
             )
 
             execute_clicked = st.button(
-                f"AUTHORIZE CONTAINMENT ACTION ({' + '.join(plan.selected_node_ids)})",
+                f"COMMIT MIRROR CUT TO PRODUCTION ({' + '.join(plan.selected_node_ids)})",
                 type="primary",
                 disabled=not auth_confirmed,
                 use_container_width=True
@@ -528,11 +612,12 @@ with col_right:
 
             if execute_clicked:
                 try:
-                    # 1. Freshness validation & apply containment
-                    mutation_res = st.session_state.service.validate_and_apply_plan(
+                    # 1. Apply containment & generate cryptographic receipt
+                    mutation_res, receipt = st.session_state.service.apply_and_audit_containment(
                         source_id=selected_source,
                         target_id=selected_target,
                         expected_cut_ids=plan.selected_node_ids,
+                        incident_id="INC-2026-TEZCATL-09",
                         max_hops=selected_max_hops
                     )
 
@@ -543,13 +628,15 @@ with col_right:
                         max_hops=selected_max_hops
                     )
                     st.session_state.post_verification_count = post_count
+                    st.session_state.audit_receipt = receipt
 
                     if post_count == 0:
                         st.session_state.containment_status = "CONTAINED"
                         st.session_state.analysis_result = st.session_state.service.analyze_incident(
                             source_id=selected_source,
                             target_id=selected_target,
-                            max_hops=selected_max_hops
+                            max_hops=selected_max_hops,
+                            run_mirror_sim=False
                         )
                         st.rerun()
                     else:

@@ -1,5 +1,5 @@
 """
-llm_router.py — Strictly bounded LLM intent routing and structured summarization for CUTLINE v2.
+llm_router.py — Strictly bounded LLM intent routing and structured summarization for TEZCATL.
 
 The LLM is strictly read-only and bounded:
 - Validates user natural language requests into fixed enums: INVESTIGATE, EXPLAIN_PLAN, HELP.
@@ -111,7 +111,7 @@ class LLMRoutingLayer:
                     confidence=1.0,
                     reasoning="Deterministic router: matched investigation keywords."
                 )
-            elif any(w in query_clean for w in ["explain", "why", "plan", "reason", "cut", "cost"]):
+            elif any(w in query_clean for w in ["explain", "why", "plan", "reason", "cut", "cost", "blast"]):
                 return IntentClassificationResult(
                     intent=AgentIntent.EXPLAIN_PLAN,
                     confidence=1.0,
@@ -127,8 +127,8 @@ class LLMRoutingLayer:
         # Call OpenAI SDK with constrained output
         try:
             prompt = (
-                "You are a security routing classifier. Classify the user query into exactly one category: "
-                "INVESTIGATE (scan or find attack paths), EXPLAIN_PLAN (explain the recommended cut plan or why a cost is optimal), "
+                "You are TEZCATL's security routing classifier. Classify the user query into exactly one category: "
+                "INVESTIGATE (scan or find attack paths), EXPLAIN_PLAN (explain the recommended cut plan, blast radius or why a cost is optimal), "
                 "or HELP (general help or commands).\n"
                 f"User query: '{query}'\n"
                 "Respond with only the category name."
@@ -178,11 +178,11 @@ class LLMRoutingLayer:
 
         # Deterministic summary strictly grounded in live evidence
         deterministic_summary = (
-            f"[Deterministic Evidence Engine] The optimizer identified {paths_count} directed attack paths bounded to 8 hops. "
-            f"Containment plan {selected_nodes} was selected at modeled operational cost {total_cost} "
+            f"[TEZCATL Obsidian Evidence Engine] The optimizer identified {paths_count} directed attack paths bounded to 8 hops. "
+            f"Containment plan {selected_nodes} was selected with total graph-computed blast radius cost {total_cost} "
             f"because revoking both credentials severs all {paths_count} paths simultaneously. "
             f"In comparison, shutting down release_controller also severs all paths but incurs "
-            f"a higher operational disruption cost of {alt_controller_cost}. "
+            f"a higher operational disruption blast radius of {alt_controller_cost} across downstream services. "
             f"Protected endpoints ('ci_runner' and 'signing_key') were shielded from mitigation."
         )
 
@@ -194,8 +194,8 @@ class LLMRoutingLayer:
                 "Summarize this attack-path containment plan based strictly on the provided evidence:\n"
                 f"- Attack paths evaluated: {paths_count}\n"
                 f"- Selected mitigation entities: {selected_nodes}\n"
-                f"- Total modeled cost: {total_cost}\n"
-                f"- Rejected single-node alternative: release_controller (cost {alt_controller_cost})\n"
+                f"- Total graph-computed blast radius cost: {total_cost}\n"
+                f"- Rejected single-node alternative: release_controller (blast radius cost {alt_controller_cost})\n"
                 "Explain why this plan is mathematically optimal for containment and why the controller shutdown was rejected. "
                 "Do not invent any facts outside this data."
             )
@@ -206,6 +206,6 @@ class LLMRoutingLayer:
                 temperature=0.2
             )
             llm_text = response.choices[0].message.content.strip()
-            return f"[AI Assistant Summary — {self.model}]\n{llm_text}"
+            return f"[TEZCATL Assistant Summary — {self.model}]\n{llm_text}"
         except Exception:
             return deterministic_summary

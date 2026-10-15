@@ -1,6 +1,7 @@
 """
 tests/test_audit_hardening_integration.py — Integration tests verifying Security Hardening,
-Anti-Vibecode Refactor, Telemetry Instrumentation, and Read/Write Interface Segregation.
+Anti-Vibecode Refactor, Telemetry Instrumentation, Read/Write Segregation,
+and TEZCATL Pure-Graph Upgrades.
 """
 
 import pytest
@@ -57,7 +58,7 @@ def test_read_only_client_mutation_lockdown():
     assert len(paths) == 3
 
     centrality = ro_client.get_betweenness_centrality()
-    assert len(centrality) == 16
+    assert len(centrality) == len(seed.ALL_NODES)
 
     # Write operations MUST raise PermissionError
     with pytest.raises(PermissionError):
@@ -98,14 +99,14 @@ def test_judge_stress_testing_and_bypass_route():
     initial_paths = client.discover_attack_paths("ci_runner")
     assert len(initial_paths) == 3
 
-    # Inject bypass
-    mut = client.inject_bypass_edge("ci_runner", "release_controller", "E-STRESS-BYPASS")
-    assert mut.updated_edge_count == 1
+    # Inject bypass route
+    inj_mut = client.inject_bypass_edge("ci_runner", "release_controller")
+    assert inj_mut.updated_edge_count == 1
 
-    expanded_paths = client.discover_attack_paths("ci_runner")
-    assert len(expanded_paths) == 4
+    bypassed_paths = client.discover_attack_paths("ci_runner")
+    assert len(bypassed_paths) == 4
 
-    # Remove bypass
+    # Remove bypass route
     del_mut = client.remove_bypass_edge("E-STRESS-BYPASS")
     assert del_mut.updated_edge_count == 1
 
@@ -178,3 +179,94 @@ def test_full_containment_lifecycle_and_clean_reset():
     reset_paths = service.client.discover_attack_paths("ci_runner")
     assert len(reset_paths) == 3
 
+
+def test_graph_computed_blast_radius():
+    """
+    UPGRADE 1: Confirms FalkorDB multi-hop reverse traversal dynamically derives
+    blast radius disruption costs from downstream :Service impact scores:
+    MATCH (s:Service)-[:DEPENDS_ON*1..4]->(e:Entity)
+    """
+    client = FalkorGraphClient(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=GRAPH_NAME)
+    blast_map = client.compute_blast_radius(["deploy_token", "artifact_token", "release_controller"])
+
+    assert "deploy_token" in blast_map
+    assert blast_map["deploy_token"]["blast_radius_cost"] == 2
+    assert "Staging Deployer" in blast_map["deploy_token"]["impacted_services"]
+
+    assert "artifact_token" in blast_map
+    assert blast_map["artifact_token"]["blast_radius_cost"] == 3
+    assert "Artifact Publish Daemon" in blast_map["artifact_token"]["impacted_services"]
+
+    assert "release_controller" in blast_map
+    assert blast_map["release_controller"]["blast_radius_cost"] == 10
+    assert blast_map["release_controller"]["downstream_service_count"] == 3
+    assert "Checkout API" in blast_map["release_controller"]["impacted_services"]
+    assert "Billing Worker" in blast_map["release_controller"]["impacted_services"]
+
+
+def test_falkordb_multi_graph_smoking_mirror_isolation():
+    """
+    UPGRADE 2: Confirms FalkorDB multi-graph sandbox cloning into 'tezcatl_mirror'.
+    Proves counterfactual containment in mirror without mutating prod_graph.
+    """
+    client = FalkorGraphClient(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=GRAPH_NAME)
+
+    # Initial production paths = 3
+    prod_paths_before = client.discover_attack_paths("ci_runner")
+    assert len(prod_paths_before) == 3
+
+    # Execute simulation in isolated tezcatl_mirror
+    sim_res = client.simulate_mirror_containment(
+        blocked_ids=["deploy_token", "artifact_token"],
+        source_id="ci_runner"
+    )
+
+    assert sim_res["verified_contained"] is True
+    assert sim_res["mirror_remaining_count"] == 0
+    assert len(sim_res["mirror_paths"]) == 0
+    assert sim_res["simulation_latency_ms"] >= 0.0
+
+    # Crucial Isolation Check: prod_graph MUST remain completely unmutated!
+    prod_paths_after = client.discover_attack_paths("ci_runner")
+    assert len(prod_paths_after) == 3
+
+
+def test_cryptographic_containment_receipt_and_hashes():
+    """
+    UPGRADE 3: Confirms generation of TEZCATL Containment Audit Receipt
+    with distinct pre/post SHA-256 graph hashes, spared bottlenecks, and query telemetry.
+    """
+    service = ContainmentService(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=GRAPH_NAME)
+    analysis = service.analyze_incident()
+    plan = analysis.recommended_plan
+    assert plan is not None
+
+    mut, receipt = service.apply_and_audit_containment(
+        source_id=analysis.source_id,
+        target_id=analysis.target_id,
+        expected_cut_ids=plan.selected_node_ids,
+        incident_id="INC-TEST-RECEIPT-01"
+    )
+
+    assert receipt.verification_status == "CONTAINED_AND_VERIFIED"
+    assert receipt.verified_remaining_paths == 0
+    assert receipt.total_blast_radius_cost == 5
+    assert len(receipt.optimal_cut_ids) == 2
+
+    # Verify SHA-256 integrity hash divergence
+    assert len(receipt.pre_mitigation_graph_hash) == 64
+    assert len(receipt.post_mitigation_graph_hash) == 64
+    assert receipt.pre_mitigation_graph_hash != receipt.post_mitigation_graph_hash
+
+    # Verify high-centrality spared bottlenecks
+    spared_ids = [b.node_id for b in receipt.spared_bottlenecks]
+    assert "release_controller" in spared_ids
+    controller_b = next(b for b in receipt.spared_bottlenecks if b.node_id == "release_controller")
+    assert controller_b.blast_radius_cost == 10
+    assert "Checkout API" in controller_b.services_preserved
+
+    # Verify serializability
+    json_str = receipt.to_json()
+    assert "pre_mitigation_graph_hash" in json_str
+    md_str = receipt.to_markdown()
+    assert "# TEZCATL Containment Audit Receipt" in md_str

@@ -77,7 +77,7 @@ def test_native_betweenness_centrality(client):
     """Native procedure executes successfully and returns valid numeric scores."""
     centrality = client.get_betweenness_centrality()
     assert isinstance(centrality, list)
-    assert len(centrality) == 16
+    assert len(centrality) == len(seed.ALL_NODES)
 
     for item in centrality:
         assert isinstance(item, CentralityScore)
