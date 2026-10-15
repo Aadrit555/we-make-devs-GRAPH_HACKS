@@ -2,1269 +2,492 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TEZCATL // Obsidian Mirror Graph Containment Engine</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Driftbar — Meadow Footer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg-paper: #f1f1ee;
-      --bg-subtle: #e8e8e3;
-      --lavender-fog: #e2e3f1;
-      --fg-primary: #121316;
-      --fg-secondary: #565961;
-      --fg-muted: #848792;
-      --accent-obsidian: #0e1117;
-      --accent-smoke: #3b4252;
-      --border-line: rgba(18, 19, 22, 0.12);
-      --glass-bg: rgba(241, 241, 238, 0.72);
-      --glass-panel: rgba(255, 255, 255, 0.82);
-      --glass-border: rgba(255, 255, 255, 0.6);
-      --glass-shadow: 0 24px 64px rgba(18, 19, 22, 0.08);
-      --status-green: #1b8a5a;
-      --status-red: #c0392b;
-      --status-amber: #d97706;
-      --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
-      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --paper: #f1f1ee;
+      --ink: #0c0c0c;
+      --body: #6f6f6c;
+      --muted: #9c9c98;
+      --wordmark: #efefeb;
+      --mist: #e2e3f1; /* pale lavender the blue-hour meadow fades into */
+      --font: "Inter", system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
     }
-
-    * {
-      box-sizing: border-box;
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
       margin: 0;
-      padding: 0;
-    }
-
-    html, body {
-      width: 100%;
-      height: 100%;
-      background-color: var(--bg-paper);
-      color: var(--fg-primary);
-      font-family: var(--font-sans);
-      overflow-x: hidden;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--font);
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
+    a { color: inherit; text-decoration: none; }
+    ul { margin: 0; padding: 0; list-style: none; }
 
-    /* Ambient Blue-Hour Meadow Background Canvas */
-    #ambientCanvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
+    /* Canvas unit system */
+    .footer {
+      --u: min(100vw / 1440, 100vh / 672);
+      --u: min(100vw / 1440, 100svh / 672);
+      position: relative;
       height: 100vh;
+      height: 100svh;
+      background: var(--paper);
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    /* Stage & Video */
+    .footer__stage {
+      position: absolute;
+      inset: 0;
       z-index: 0;
+    }
+    .footer__video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: 50% 100%;
+      transform: translateY(9%);
+    }
+    .footer__stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        var(--paper) 0%,
+        rgb(241 241 238 / .96) 26%,
+        rgb(241 241 238 / .72) 44%,
+        rgb(241 241 238 / 0) 70%
+      );
       pointer-events: none;
-      opacity: 0.85;
     }
 
-    /* Lavender Fog Ambient Glow */
-    .lavender-fog-layer {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: radial-gradient(circle at 50% 100%, var(--lavender-fog) 0%, rgba(226, 227, 241, 0.3) 45%, transparent 75%);
+    /* Wordmark, Frosted Glass */
+    .footer__wordmark {
+      position: absolute;
+      left: 50%;
+      bottom: calc(-2 * var(--u));
+      transform: translateX(-50%);
       z-index: 1;
+      margin: 0;
+      font-size: calc(390 * var(--u));
+      font-weight: 600;
+      line-height: .74;
+      letter-spacing: -0.045em;
+      white-space: nowrap;
       pointer-events: none;
-    }
-
-    /* Main Container */
-    .page-wrapper {
-      position: relative;
-      z-index: 2;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 2.5rem 3.5rem;
-    }
-
-    @media (max-width: 768px) {
-      .page-wrapper {
-        padding: 1.5rem;
-      }
-    }
-
-    /* Top Navigation Bar */
-    header.top-nav {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      width: 100%;
-    }
-
-    .brand-mark {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      font-family: var(--font-mono);
-      font-size: 0.82rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--fg-primary);
-    }
-
-    .brand-dot {
-      width: 8px;
-      height: 8px;
-      background-color: var(--accent-obsidian);
-      border-radius: 50%;
-    }
-
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 1.75rem;
-      font-family: var(--font-mono);
-      font-size: 0.78rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .nav-link {
-      color: var(--fg-secondary);
-      text-decoration: none;
-      cursor: pointer;
-      transition: color 0.15s ease;
-    }
-
-    .nav-link:hover {
-      color: var(--fg-primary);
-    }
-
-    /* Hero Centerpiece */
-    main.hero-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      margin: auto 0;
-      padding: 3rem 0;
-    }
-
-    .pre-heading {
-      font-family: var(--font-mono);
-      font-size: 0.82rem;
-      font-weight: 600;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: var(--fg-secondary);
-      margin-bottom: 1.5rem;
-    }
-
-    /* Giant Frosted Glass TEZCATL Wordmark */
-    .wordmark-wrapper {
-      position: relative;
-      margin: 1rem 0 2rem 0;
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .wordmark-text {
-      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-      font-size: clamp(3.2rem, 11.5vw, 9.8rem);
-      font-weight: 900;
-      letter-spacing: 0.18em;
-      line-height: 0.95;
-      text-transform: uppercase;
-      color: rgba(18, 19, 22, 0.92);
-      text-shadow: 0 4px 30px rgba(0, 0, 0, 0.04);
-      background: linear-gradient(180deg, #18191e 0%, #3a3d46 100%);
+      user-select: none;
+      color: rgb(232 234 250 / .4);
+      background: linear-gradient(to bottom, rgb(255 255 255 / .78), rgb(214 218 246 / .36) 48%, rgb(255 255 255 / .62));
       -webkit-background-clip: text;
+      background-clip: text;
       -webkit-text-fill-color: transparent;
-      user-select: none;
+      filter: drop-shadow(0 calc(-1 * var(--u)) 0 rgb(255 255 255 / .55)) drop-shadow(0 0 calc(18 * var(--u)) rgb(190 200 255 / .45));
     }
 
-    .hero-subheading {
-      max-width: 680px;
-      font-size: 1.08rem;
-      line-height: 1.65;
-      color: var(--fg-secondary);
-      font-weight: 400;
-      margin-bottom: 2.75rem;
+    /* Fog */
+    .footer__fog {
+      position: absolute;
+      inset: auto 0 0;
+      z-index: 2;
+      height: 17%;
+      pointer-events: none;
+      background: linear-gradient(to top, var(--mist) 0%, rgb(226 227 241 / .6) 30%, rgb(226 227 241 / 0) 100%);
     }
 
-    .hero-subheading strong {
-      color: var(--fg-primary);
-      font-weight: 600;
+    /* Content Grid */
+    .footer__content {
+      position: relative;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: calc(440 * var(--u)) calc(240 * var(--u)) calc(240 * var(--u)) 1fr;
+      align-items: start;
+      width: calc(1440 * var(--u));
+      margin: 0 auto;
+      padding: calc(86 * var(--u)) calc(100 * var(--u)) 0 calc(160 * var(--u));
     }
 
-    /* Action CTA Buttons (Pure Typographic, Zero Slop) */
-    .cta-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1.25rem;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .btn {
+    /* Brand Block */
+    .brand__logo {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      padding: 0.95rem 1.85rem;
-      font-family: var(--font-mono);
-      font-size: 0.84rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      border-radius: 4px;
-      cursor: pointer;
-      text-decoration: none;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      border: 1px solid transparent;
+      gap: calc(10 * var(--u));
+      font-size: calc(17 * var(--u));
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+    .brand__mark {
+      position: relative;
+      display: inline-block;
+      width: calc(30 * var(--u));
+      height: calc(30 * var(--u));
+      border-radius: calc(8 * var(--u));
+      background: linear-gradient(to bottom, #2b2b2b, #0a0a0a 55%);
+      box-shadow: 0 calc(1 * var(--u)) calc(2 * var(--u)) rgb(0 0 0 / .25);
+      flex-shrink: 0;
+    }
+    .brand__mark::after {
+      content: "";
+      position: absolute;
+      left: 13%;
+      right: 13%;
+      bottom: 14%;
+      height: 19%;
+      border-radius: 999px;
+      background: #ffffff;
     }
 
-    .btn-primary {
-      background-color: var(--accent-obsidian);
+    .brand__title {
+      margin: calc(19 * var(--u)) 0 0 0;
+      font-size: calc(20 * var(--u));
+      font-weight: 600;
+      line-height: 1.2;
+      letter-spacing: -0.045em;
+    }
+
+    .brand__text {
+      max-width: calc(412 * var(--u));
+      margin: calc(18 * var(--u)) 0 0 0;
+      color: var(--body);
+      font-size: calc(13.7 * var(--u));
+      line-height: 1.43;
+      letter-spacing: -0.012em;
+    }
+
+    .brand__cta {
+      display: inline-flex;
+      align-items: center;
+      gap: calc(6 * var(--u));
+      height: calc(32.5 * var(--u));
+      margin-top: calc(20 * var(--u));
+      padding: 0 calc(16 * var(--u)) 0 calc(15 * var(--u));
+      border-radius: calc(7 * var(--u));
+      background: #0c0c0c;
       color: #ffffff;
-      box-shadow: 0 4px 18px rgba(18, 19, 22, 0.15);
+      font-size: calc(11.8 * var(--u));
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      transition: background-color 0.2s, transform 0.2s;
     }
-
-    .btn-primary:hover {
-      background-color: #272a33;
-      transform: translateY(-1px);
-      box-shadow: 0 8px 26px rgba(18, 19, 22, 0.2);
+    .brand__cta svg {
+      width: calc(13 * var(--u));
+      height: calc(13 * var(--u));
+      margin-top: calc(-1.5 * var(--u));
+      flex-shrink: 0;
     }
-
-    .btn-secondary {
-      background-color: rgba(255, 255, 255, 0.65);
-      backdrop-filter: blur(8px);
-      color: var(--fg-primary);
-      border-color: var(--border-line);
-    }
-
-    .btn-secondary:hover {
-      background-color: #ffffff;
-      border-color: rgba(18, 19, 22, 0.25);
+    .brand__cta:hover {
+      background-color: #262626;
       transform: translateY(-1px);
     }
 
-    /* Footer Status Row */
-    footer.bottom-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 1rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid var(--border-line);
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      color: var(--fg-secondary);
+    .brand__copy {
+      margin: calc(23 * var(--u)) 0 0 0;
+      color: var(--muted);
+      font-size: calc(12.2 * var(--u));
+      letter-spacing: .01em;
     }
 
-    .status-left, .status-right {
+    .brand__by {
       display: flex;
       align-items: center;
-      gap: 1.25rem;
+      gap: calc(5 * var(--u));
+      margin: calc(21 * var(--u)) 0 0 0;
+      font-size: calc(11.8 * var(--u));
+      font-weight: 500;
+      letter-spacing: -0.01em;
     }
-
-    .status-badge {
+    .brand__heart {
+      font-size: .95em;
+    }
+    .brand__author {
       display: inline-flex;
       align-items: center;
-      gap: 0.45rem;
-      padding: 0.35rem 0.75rem;
-      background: rgba(255, 255, 255, 0.65);
-      border: 1px solid var(--border-line);
-      border-radius: 3px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      gap: calc(6 * var(--u));
+      margin-left: calc(5 * var(--u));
     }
-
-    .status-indicator {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background-color: var(--status-green);
-      display: inline-block;
-    }
-
-    .status-indicator.red {
-      background-color: var(--status-red);
-    }
-
-    /* macOS Floating SecOps Command Console */
-    .console-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(18, 19, 22, 0.4);
-      backdrop-filter: blur(10px);
-      z-index: 999;
-      display: none;
+    .brand__avatar {
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 2rem;
-      opacity: 0;
-      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .console-overlay.active {
-      display: flex;
-      opacity: 1;
-    }
-
-    .console-window {
-      background: var(--glass-panel);
-      backdrop-filter: blur(28px);
-      border: 1px solid var(--glass-border);
-      border-radius: 12px;
-      box-shadow: 0 32px 80px rgba(0, 0, 0, 0.24);
-      width: 100%;
-      max-width: 1180px;
-      max-height: 90vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      animation: modalSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    @keyframes modalSlideIn {
-      from {
-        transform: scale(0.96) translateY(12px);
-        opacity: 0;
-      }
-      to {
-        transform: scale(1) translateY(0);
-        opacity: 1;
-      }
-    }
-
-    /* macOS Window Header */
-    .window-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.85rem 1.25rem;
-      background: rgba(245, 245, 242, 0.85);
-      border-bottom: 1px solid var(--border-line);
-      user-select: none;
-    }
-
-    .traffic-lights {
-      display: flex;
-      gap: 7px;
-    }
-
-    .traffic-dot {
-      width: 11px;
-      height: 11px;
+      width: calc(23 * var(--u));
+      height: calc(23 * var(--u));
       border-radius: 50%;
-      cursor: pointer;
-    }
-
-    .dot-close { background-color: #ff5f56; border: 1px solid #e0443e; }
-    .dot-min { background-color: #ffbd2e; border: 1px solid #dea123; }
-    .dot-max { background-color: #27c93f; border: 1px solid #1aab29; }
-
-    .window-title {
-      font-family: var(--font-mono);
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--fg-secondary);
-    }
-
-    .window-actions {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    /* Console Body Layout */
-    .console-body {
-      display: grid;
-      grid-template-columns: 340px 1fr;
-      flex: 1;
+      background: #e3e3e0;
       overflow: hidden;
-      min-height: 580px;
+      flex-shrink: 0;
     }
-
-    @media (max-width: 960px) {
-      .console-body {
-        grid-template-columns: 1fr;
-        overflow-y: auto;
-      }
-    }
-
-    /* Left Control Sidebar */
-    .console-sidebar {
-      background: rgba(240, 240, 237, 0.65);
-      border-right: 1px solid var(--border-line);
-      padding: 1.5rem;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-
-    .sidebar-section-title {
-      font-family: var(--font-mono);
-      font-size: 0.74rem;
-      font-weight: 700;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--fg-muted);
-      margin-bottom: 0.65rem;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      margin-bottom: 0.85rem;
-    }
-
-    .form-label {
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      color: var(--fg-secondary);
-    }
-
-    .form-input, .form-select {
-      background: #ffffff;
-      border: 1px solid var(--border-line);
-      border-radius: 4px;
-      padding: 0.55rem 0.75rem;
-      font-family: var(--font-mono);
-      font-size: 0.8rem;
-      color: var(--fg-primary);
-      outline: none;
-      transition: border-color 0.15s;
-    }
-
-    .form-input:focus, .form-select:focus {
-      border-color: var(--accent-obsidian);
-    }
-
-    .button-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 0.65rem;
-      margin-top: 0.5rem;
-    }
-
-    .btn-block {
+    .brand__avatar svg {
       width: 100%;
-      padding: 0.75rem 1rem;
-      font-size: 0.76rem;
+      height: 100%;
+      display: block;
     }
 
-    /* Right Content Area */
-    .console-content {
-      padding: 1.75rem;
-      overflow-y: auto;
+    .brand__status {
       display: flex;
-      flex-direction: column;
-      gap: 1.75rem;
-      background: #ffffff;
+      flex-wrap: wrap;
+      gap: calc(8 * var(--u));
+      margin-top: calc(16 * var(--u));
     }
 
-    /* Tabs Bar */
-    .tab-bar {
-      display: flex;
-      border-bottom: 1px solid var(--border-line);
-      gap: 1.5rem;
-    }
-
-    .tab-item {
-      font-family: var(--font-mono);
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      padding-bottom: 0.65rem;
-      color: var(--fg-muted);
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all 0.15s;
-    }
-
-    .tab-item.active {
-      color: var(--fg-primary);
-      border-bottom-color: var(--accent-obsidian);
-    }
-
-    /* Dynamic Output Cards */
-    .card {
-      background: #fafaf8;
-      border: 1px solid var(--border-line);
-      border-radius: 6px;
-      padding: 1.25rem;
-    }
-
-    .card-title {
-      font-family: var(--font-mono);
-      font-size: 0.76rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--fg-secondary);
-      margin-bottom: 0.85rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-family: var(--font-mono);
-      font-size: 0.78rem;
-      margin-top: 0.5rem;
-    }
-
-    .data-table th {
-      text-align: left;
-      padding: 0.55rem 0.75rem;
-      background: rgba(0, 0, 0, 0.03);
-      color: var(--fg-secondary);
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      border-bottom: 1px solid var(--border-line);
-    }
-
-    .data-table td {
-      padding: 0.55rem 0.75rem;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-      color: var(--fg-primary);
-    }
-
-    .path-step-badge {
-      display: inline-block;
-      padding: 0.2rem 0.5rem;
-      background: #eef0f3;
-      border: 1px solid var(--border-line);
-      border-radius: 3px;
-      margin: 0.15rem;
-      font-size: 0.74rem;
-    }
-
-    .highlight-cut {
-      background-color: #fee2e2;
-      border-color: #fca5a5;
-      color: #991b1b;
-      font-weight: bold;
-    }
-
-    .badge-contained {
-      background-color: #dcfce7;
-      border-color: #86efac;
-      color: #166534;
-      font-weight: 600;
-      padding: 0.35rem 0.75rem;
-      border-radius: 4px;
+    .chip {
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: calc(6 * var(--u));
+      height: calc(25 * var(--u));
+      padding: 0 calc(10 * var(--u));
+      border: 1px solid rgb(12 12 12 / .12);
+      border-radius: 999px;
+      background: rgb(255 255 255 / .55);
+      font-size: calc(10.8 * var(--u));
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      color: var(--ink);
+    }
+    .chip svg {
+      width: calc(11 * var(--u));
+      height: calc(11 * var(--u));
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+    .chip__dot {
+      width: calc(6 * var(--u));
+      height: calc(6 * var(--u));
+      border-radius: 50%;
+      background: #2fb36a;
+      box-shadow: 0 0 0 calc(2.5 * var(--u)) rgb(47 179 106 / .18);
+      flex-shrink: 0;
     }
 
-    .raw-receipt-box {
-      background: #18191e;
-      color: #b0b4c0;
-      font-family: var(--font-mono);
-      font-size: 0.74rem;
-      line-height: 1.5;
-      padding: 1.25rem;
-      border-radius: 6px;
-      overflow-x: auto;
-      max-height: 280px;
-      white-space: pre-wrap;
+    /* Link Columns */
+    .col__title {
+      margin: 0;
+      font-size: calc(16 * var(--u));
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: -0.045em;
+      color: var(--ink);
     }
-
-    /* Human Gated Approval Block */
-    .approval-gate {
-      background: #fffbeb;
-      border: 1px solid #fde68a;
-      border-radius: 6px;
-      padding: 1.25rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.85rem;
-    }
-
-    .approval-gate-header {
-      font-family: var(--font-mono);
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: #92400e;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    /* Stress Testing Controls */
-    .stress-grid {
+    .col__list {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 1rem;
+      gap: calc(20.5 * var(--u));
+      margin-top: calc(24 * var(--u));
+      font-size: calc(13.7 * var(--u));
+      line-height: 1.24;
+      letter-spacing: .022em;
+      color: #161616;
+    }
+    .col--menu .col__list {
+      gap: calc(15 * var(--u));
+      margin-top: calc(21 * var(--u));
+      font-weight: 500;
+      letter-spacing: -0.025em;
+      color: var(--ink);
+    }
+    .col__list a {
+      transition: opacity 0.2s;
+    }
+    .col__list a:hover {
+      opacity: .55;
+    }
+
+    /* Tablet (768–1023px) */
+    @media (min-width: 768px) and (max-width: 1023px) {
+      .footer {
+        --u: min(100vw / 1040, 100vh / 672);
+        --u: min(100vw / 1040, 100svh / 672);
+      }
+      .footer__content {
+        grid-template-columns: calc(400 * var(--u)) calc(190 * var(--u)) calc(210 * var(--u)) 1fr;
+        width: calc(1040 * var(--u));
+        padding: calc(64 * var(--u)) calc(40 * var(--u)) 0;
+      }
+      .brand__text {
+        max-width: calc(350 * var(--u));
+      }
+      .footer__wordmark {
+        font-size: calc(286 * var(--u));
+        bottom: calc(10 * var(--u));
+      }
+    }
+
+    /* Mobile (<=767px) */
+    @media (max-width: 767px) {
+      .footer {
+        --u: 1px;
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        min-height: 100vh;
+        min-height: 100svh;
+      }
+      .footer__stage::after {
+        background: linear-gradient(
+          to bottom,
+          var(--paper) 0%,
+          rgb(241 241 238 / .95) 50%,
+          rgb(241 241 238 / .8) 68%,
+          rgb(241 241 238 / 0) 90%
+        );
+      }
+      .footer__content {
+        display: grid;
+        grid-template-columns: auto auto auto;
+        justify-content: space-between;
+        column-gap: 12px;
+        row-gap: 36px;
+        width: 100%;
+        padding: 40px 20px 0;
+        margin-bottom: max(34vw, 150px);
+      }
+      .brand {
+        grid-column: 1 / -1;
+      }
+      .brand__title {
+        font-size: 21px;
+      }
+      .brand__text {
+        max-width: 34em;
+        font-size: 14px;
+      }
+      .brand__cta {
+        height: 38px;
+        padding: 0 18px 0 16px;
+        border-radius: 8px;
+        font-size: 13px;
+      }
+      .brand__cta svg {
+        width: 14px;
+        height: 14px;
+      }
+      .brand__copy,
+      .brand__by {
+        font-size: 12.5px;
+      }
+      .chip {
+        height: 28px;
+        font-size: 12px;
+      }
+      .col__title {
+        font-size: 15px;
+      }
+      .col__list,
+      .col--menu .col__list {
+        gap: 14px;
+        margin-top: 20px;
+        font-size: 13px;
+        letter-spacing: 0;
+        white-space: nowrap;
+      }
+      .footer__wordmark {
+        bottom: 5vw;
+        font-size: 27vw;
+      }
+      .footer__fog {
+        height: 7%;
+      }
+    }
+
+    /* Below 360px */
+    @media (max-width: 359px) {
+      .footer__content {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+      .brand__cta,
+      .col__list a {
+        transition: none;
+      }
     }
   </style>
 </head>
 <body>
-
-  <!-- Ambient blue-hour canvas -->
-  <canvas id="ambientCanvas"></canvas>
-  <div class="lavender-fog-layer"></div>
-
-  <div class="page-wrapper">
-    <!-- Header -->
-    <header class="top-nav">
-      <div class="brand-mark">
-        <span class="brand-dot"></span>
-        <span>TEZCATL // SOVEREIGN ENGINE</span>
-      </div>
-
-      <nav class="nav-links">
-        <a class="nav-link" id="navOpenConsole">Launch Console</a>
-        <a class="nav-link" id="navRunScry">Live Scry</a>
-        <a class="nav-link" href="https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS" target="_blank" rel="noopener">GitHub</a>
-      </nav>
-    </header>
-
-    <!-- Center Hero -->
-    <main class="hero-container">
-      <div class="pre-heading">WE MAKE DEVS & FALKORDB // TRACK 01: AGENTS THAT ACT ON CONNECTED DATA</div>
-
-      <div class="wordmark-wrapper">
-        <h1 class="wordmark-text">TEZCATL</h1>
-      </div>
-
-      <p class="hero-subheading">
-        <strong>Multi-Hop Breach Discovery, Blast-Radius Calculus & Shadow-Graph Verification</strong>.
-        Powered by native FalkorDB algorithms and 100% first-party deterministic graph orchestration.
-        Zero external APIs. Zero third-party agent wrappers.
-      </p>
-
-      <div class="cta-group">
-        <button class="btn btn-primary" id="btnLaunchConsole">Launch TEZCATL Console</button>
-        <button class="btn btn-secondary" id="btnDirectInvestigate">Quick Run Investigation</button>
-      </div>
-    </main>
-
-    <!-- Clean Footer Status Row (Zero Emojis, Zero Shipped Today Chip) -->
-    <footer class="bottom-bar">
-      <div class="status-left">
-        <div class="status-badge" id="dbStatusBadge">
-          <span class="status-indicator" id="dbStatusDot"></span>
-          <span id="dbStatusText">CHECKING FALKORDB...</span>
-        </div>
-        <span id="dbGraphMeta">prod_graph (127.0.0.1:6379)</span>
-      </div>
-
-      <div class="status-right">
-        <span>TRACK 01: AGENTS THAT ACT ON CONNECTED DATA</span>
-        <a href="https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS" target="_blank" rel="noopener" style="color: inherit; text-decoration: none;">
-          GITHUB REPOSITORY
-        </a>
-      </div>
-    </footer>
-  </div>
-
-  <!-- macOS Floating Console Modal -->
-  <div class="console-overlay" id="consoleModal">
-    <div class="console-window">
-      <!-- Window Title Bar -->
-      <div class="window-header">
-        <div class="traffic-lights">
-          <div class="traffic-dot dot-close" id="modalCloseDot"></div>
-          <div class="traffic-dot dot-min"></div>
-          <div class="traffic-dot dot-max"></div>
-        </div>
-        <div class="window-title">TEZCATL // OBSIDIAN MIRROR GRAPH CONTAINMENT CONSOLE</div>
-        <div class="window-actions">
-          <span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--fg-muted);">ESC TO CLOSE</span>
-        </div>
-      </div>
-
-      <!-- Window Content -->
-      <div class="console-body">
-        <!-- Sidebar Controls -->
-        <aside class="console-sidebar">
-          <div>
-            <div class="sidebar-section-title">01 // INCIDENT SCOPE</div>
-            <div class="form-group">
-              <label class="form-label">Compromised Source</label>
-              <input type="text" class="form-input" id="inputSource" value="ci_runner" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Target Asset</label>
-              <input type="text" class="form-input" id="inputTarget" value="signing_key" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Hop Bound (1..8)</label>
-              <input type="number" class="form-input" id="inputHops" value="8" min="1" max="8" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Protected Assets (Excluded from Cut)</label>
-              <input type="text" class="form-input" id="inputExcludes" placeholder="e.g. runner_host" />
-            </div>
-          </div>
-
-          <div class="button-stack">
-            <button class="btn btn-primary btn-block" id="btnRunInvestigation">Run Sovereign Investigation</button>
-            <button class="btn btn-secondary btn-block" id="btnResetGraph">Reset Graph to Seed</button>
-          </div>
-
-          <div>
-            <div class="sidebar-section-title">02 // JUDGE STRESS TESTING</div>
-            <div class="form-group">
-              <label class="form-label">Mutate Node Disruption Cost</label>
-              <div style="display: flex; gap: 0.4rem;">
-                <input type="text" class="form-input" id="inputMutateNode" value="deploy_token" style="flex: 2;" />
-                <input type="number" class="form-input" id="inputMutateCost" value="15" style="flex: 1;" />
-              </div>
-              <button class="btn btn-secondary btn-block" id="btnApplyCostMutation" style="margin-top: 0.4rem;">Update Node Cost</button>
-            </div>
-            <div class="form-group" style="margin-top: 0.8rem;">
-              <button class="btn btn-secondary btn-block" id="btnToggleBypass">Inject Bypass Route</button>
-            </div>
-          </div>
-        </aside>
-
-        <!-- Main Display Content Area -->
-        <main class="console-content">
-          <!-- Navigation Tabs -->
-          <div class="tab-bar">
-            <div class="tab-item active" data-tab="tab-overview">Investigation Overview</div>
-            <div class="tab-item" data-tab="tab-paths">Attack Paths (*1..8)</div>
-            <div class="tab-item" data-tab="tab-centrality">Centrality & Blast Radius</div>
-            <div class="tab-item" data-tab="tab-mirror">Smoking Mirror Sandbox</div>
-            <div class="tab-item" data-tab="tab-receipt">Cryptographic Audit Receipt</div>
-          </div>
-
-          <!-- Tab: Overview -->
-          <section id="tab-overview" class="tab-content">
-            <div class="card" style="margin-bottom: 1.25rem;">
-              <div class="card-title">
-                <span>01 // INCIDENT SUMMARY & TOPOLOGY STATUS</span>
-                <span id="overviewBadge" class="status-badge">AWAITING INVESTIGATION</span>
-              </div>
-              <p id="overviewSummaryText" style="font-size: 0.85rem; color: var(--fg-secondary); line-height: 1.6;">
-                Click "Run Sovereign Investigation" to trigger FalkorDB multi-hop traversal, native betweenness-centrality calculation, downstream blast-radius analysis, and smoking-mirror sandbox verification.
-              </p>
-            </div>
-
-            <!-- Gated Approval Section -->
-            <div class="approval-gate" id="approvalGateContainer" style="display: none;">
-              <div class="approval-gate-header">02 // GATED HUMAN-IN-THE-LOOP CONTAINMENT COMMIT</div>
-              <p style="font-size: 0.82rem; color: #78350f; line-height: 1.5;">
-                Recommended minimum-cost cut plan: <strong id="approvalCutSummary">None</strong>.
-                Authorizing will isolate these nodes in production graph, deactivate incident relationships, and produce an immutable cryptographic containment receipt.
-              </p>
-              <div>
-                <button class="btn btn-primary" id="btnCommitContainment" style="background-color: #92400e; border-color: #78350f;">
-                  Authorize & Commit Containment Action
-                </button>
-              </div>
-            </div>
-
-            <!-- Verification Post-Action Callout -->
-            <div class="card" id="postActionBox" style="display: none; border-color: #86efac; background-color: #f0fdf4;">
-              <div class="card-title" style="color: #166534;">03 // POST-ACTION CONTAINMENT VERIFICATION</div>
-              <p id="postActionText" style="font-size: 0.82rem; color: #166534;">
-                All attack paths severed. Remaining reachability: 0 paths.
-              </p>
-            </div>
-          </section>
-
-          <!-- Tab: Attack Paths -->
-          <section id="tab-paths" class="tab-content" style="display: none;">
-            <div class="card">
-              <div class="card-title">
-                <span>ACTIVE ATTACK PATHS SCRYED VIA FALKORDB</span>
-                <span id="pathCountBadge" class="status-badge">0 PATHS</span>
-              </div>
-              <div id="pathsContainer" style="display: flex; flex-direction: column; gap: 0.75rem;">
-                <p style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--fg-muted);">No paths scried yet.</p>
-              </div>
-            </div>
-          </section>
-
-          <!-- Tab: Centrality & Blast Radius -->
-          <section id="tab-centrality" class="tab-content" style="display: none;">
-            <div class="card" style="margin-bottom: 1.25rem;">
-              <div class="card-title">NATIVE FALKORDB BETWEENNESS CENTRALITY (algo.betweenness)</div>
-              <table class="data-table" id="centralityTable">
-                <thead>
-                  <tr>
-                    <th>Entity ID</th>
-                    <th>Kind</th>
-                    <th>Centrality Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td colspan="3" style="text-align: center; color: var(--fg-muted);">Run investigation to compute.</td></tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div class="card">
-              <div class="card-title">DOWNSTREAM SERVICE BLAST RADIUS CALCULUS</div>
-              <table class="data-table" id="candidateTable">
-                <thead>
-                  <tr>
-                    <th>Entity ID</th>
-                    <th>Base Disruption</th>
-                    <th>Downstream Services</th>
-                    <th>Total Blast Cost</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td colspan="4" style="text-align: center; color: var(--fg-muted);">Run investigation to compute.</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <!-- Tab: Smoking Mirror Sandbox -->
-          <section id="tab-mirror" class="tab-content" style="display: none;">
-            <div class="card">
-              <div class="card-title">
-                <span>SMOKING MIRROR SANDBOX (tezcatl_mirror vs. prod_graph)</span>
-                <span id="mirrorStatusBadge" class="status-badge">NOT SIMULATED</span>
-              </div>
-              <p style="font-size: 0.82rem; color: var(--fg-secondary); line-height: 1.6; margin-bottom: 1rem;">
-                The smoking mirror sandbox creates a real, isolated copy of <code>prod_graph</code> into <code>tezcatl_mirror</code>, applies simulated cut isolation, and executes a full bounded path query to verify remaining paths reach zero before production commit.
-              </p>
-              <div id="mirrorDetailsContainer">
-                <p style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--fg-muted);">No mirror simulation results available.</p>
-              </div>
-            </div>
-          </section>
-
-          <!-- Tab: Cryptographic Audit Receipt -->
-          <section id="tab-receipt" class="tab-content" style="display: none;">
-            <div class="card">
-              <div class="card-title">
-                <span>SHA-256 CONTAINMENT AUDIT RECEIPT</span>
-                <button class="btn btn-secondary" id="btnDownloadReceipt" style="padding: 0.25rem 0.65rem; font-size: 0.7rem;">Download JSON</button>
-              </div>
-              <pre class="raw-receipt-box" id="receiptJsonDisplay">// Receipt will appear here after investigation or containment commit.</pre>
-            </div>
-          </section>
-        </main>
-      </div>
+  <footer class="footer">
+    <div class="footer__stage" aria-hidden="true">
+      <video class="footer__video"
+        src="https://d2ol7oe51mr4n9.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/4d01c727-d9c5-47c8-a778-35a451ffd39f.mp4"
+        poster="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261014_121838_c97d0940-f430-4304-8573-4f47ee44f447.png"
+        autoplay muted loop playsinline preload="auto"></video>
     </div>
-  </div>
-
-  <script>
-    // --- Meadow Canvas Atmosphere Animation ---
-    const canvas = document.getElementById("ambientCanvas");
-    const ctx = canvas.getContext("2d");
-    let width, height;
-
-    function resizeCanvas() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    }
-    window.addEventListener("resize", resizeCanvas);
-    resizeCanvas();
-
-    // Fireflies / Blue-Hour Meadow Particles
-    const particles = [];
-    const PARTICLE_COUNT = 38;
-
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      particles.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        radius: Math.random() * 2.2 + 0.8,
-        vx: (Math.random() - 0.5) * 0.35,
-        vy: (Math.random() - 0.5) * 0.35 - 0.1,
-        alpha: Math.random() * 0.6 + 0.2,
-        pulseSpeed: Math.random() * 0.02 + 0.005,
-      });
-    }
-
-    function renderCanvas() {
-      ctx.clearRect(0, 0, width, height);
-
-      // Subtle Twilight Meadow Gradient
-      const grad = ctx.createLinearGradient(0, 0, 0, height);
-      grad.addColorStop(0, "rgba(241, 241, 238, 1)");
-      grad.addColorStop(0.65, "rgba(235, 236, 242, 0.95)");
-      grad.addColorStop(1, "rgba(226, 227, 241, 0.9)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, width, height);
-
-      // Render Floating Blue-Hour Particles
-      for (let p of particles) {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.alpha += Math.sin(Date.now() * p.pulseSpeed) * 0.015;
-        p.alpha = Math.max(0.1, Math.min(0.7, p.alpha));
-
-        if (p.x < 0) p.x = width;
-        if (p.x > width) p.x = 0;
-        if (p.y < 0) p.y = height;
-        if (p.y > height) p.y = 0;
-
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(100, 115, 145, ${p.alpha})`;
-        ctx.fill();
-      }
-
-      requestAnimationFrame(renderCanvas);
-    }
-    renderCanvas();
-
-    // --- State & App Logic ---
-    let currentAnalysis = null;
-    let currentReceipt = null;
-
-    // Elements
-    const modal = document.getElementById("consoleModal");
-    const btnLaunchConsole = document.getElementById("btnLaunchConsole");
-    const navOpenConsole = document.getElementById("navOpenConsole");
-    const modalCloseDot = document.getElementById("modalCloseDot");
-    const btnRunInvestigation = document.getElementById("btnRunInvestigation");
-    const btnDirectInvestigate = document.getElementById("btnDirectInvestigate");
-    const btnResetGraph = document.getElementById("btnResetGraph");
-    const btnCommitContainment = document.getElementById("btnCommitContainment");
-    const btnApplyCostMutation = document.getElementById("btnApplyCostMutation");
-    const btnToggleBypass = document.getElementById("btnToggleBypass");
-    const btnDownloadReceipt = document.getElementById("btnDownloadReceipt");
-
-    // Modal Visibility
-    function openModal() {
-      modal.classList.add("active");
-    }
-    function closeModal() {
-      modal.classList.remove("active");
-    }
-
-    btnLaunchConsole.addEventListener("click", openModal);
-    navOpenConsole.addEventListener("click", openModal);
-    modalCloseDot.addEventListener("click", closeModal);
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeModal();
-    });
-
-    // Tab Navigation
-    const tabs = document.querySelectorAll(".tab-item");
-    const tabContents = document.querySelectorAll(".tab-content");
-
-    tabs.forEach(tab => {
-      tab.addEventListener("click", () => {
-        tabs.forEach(t => t.classList.remove("active"));
-        tabContents.forEach(tc => tc.style.display = "none");
-        tab.classList.add("active");
-        const targetId = tab.getAttribute("data-tab");
-        const targetEl = document.getElementById(targetId);
-        if (targetEl) targetEl.style.display = "block";
-      });
-    });
-
-    // Health Check on Load
-    async function checkHealth() {
-      try {
-        const res = await fetch("/api/health");
-        const data = await res.json();
-        const dot = document.getElementById("dbStatusDot");
-        const text = document.getElementById("dbStatusText");
-        const meta = document.getElementById("dbGraphMeta");
-
-        if (data.status === "HEALTHY") {
-          dot.classList.remove("red");
-          text.textContent = "FALKORDB ONLINE";
-          meta.textContent = `${data.graph} (${data.node_count} nodes, ${data.edge_count} edges)`;
-        } else {
-          dot.classList.add("red");
-          text.textContent = "DATABASE OFFLINE";
-          meta.textContent = "Disconnected";
-        }
-      } catch (err) {
-        document.getElementById("dbStatusDot").classList.add("red");
-        document.getElementById("dbStatusText").textContent = "DISCONNECTED";
-      }
-    }
-    checkHealth();
-    setInterval(checkHealth, 8000);
-
-    // Run Investigation
-    async function runInvestigation() {
-      const source = document.getElementById("inputSource").value.trim() || "ci_runner";
-      const target = document.getElementById("inputTarget").value.trim() || "signing_key";
-      const hops = parseInt(document.getElementById("inputHops").value.trim(), 10) || 8;
-      const excludesRaw = document.getElementById("inputExcludes").value.trim();
-      const excludes = excludesRaw ? excludesRaw.split(",").map(s => s.trim()).filter(Boolean) : [];
-
-      openModal();
-
-      document.getElementById("overviewBadge").textContent = "ANALYZING GRAPH...";
-      document.getElementById("overviewSummaryText").textContent = "Executing multi-hop discovery and algo.betweenness in FalkorDB...";
-
-      try {
-        const res = await fetch("/api/investigate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            source_id: source,
-            target_id: target,
-            max_hops: hops,
-            exclude_ids: excludes,
-          }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.detail || "Investigation failed");
-        }
-
-        const data = await res.json();
-        currentAnalysis = data.analysis;
-        currentReceipt = data.analysis.audit_receipt;
-        renderInvestigationResults(data.analysis);
-      } catch (err) {
-        document.getElementById("overviewBadge").textContent = "ERROR";
-        document.getElementById("overviewSummaryText").textContent = `Error: ${err.message}`;
-      }
-    }
-
-    btnRunInvestigation.addEventListener("click", runInvestigation);
-    btnDirectInvestigate.addEventListener("click", runInvestigation);
-    document.getElementById("navRunScry").addEventListener("click", runInvestigation);
-
-    // Render Results
-    function renderInvestigationResults(analysis) {
-      // 1. Overview Tab
-      const isContained = analysis.graph_is_contained;
-      const pathsCount = analysis.discovered_paths.length;
-      const plan = analysis.recommended_plan;
-
-      const badge = document.getElementById("overviewBadge");
-      if (isContained) {
-        badge.textContent = "CONTAINED // ZERO REACHABILITY";
-        badge.className = "status-badge badge-contained";
-      } else {
-        badge.textContent = `${pathsCount} ACTIVE ATTACK PATHS DETECTED`;
-        badge.className = "status-badge";
-      }
-
-      let summaryHtml = `Discovered <strong>${pathsCount}</strong> directed attack paths from <code>${analysis.source_id}</code> to <code>${analysis.target_id}</code>. `;
-      if (plan) {
-        summaryHtml += `<br>Optimal combinatorial cut-set: <strong>${plan.selected_node_names.join(" + ")}</strong> at total disruption cost <strong>${plan.total_cost}</strong>.`;
-      }
-      document.getElementById("overviewSummaryText").innerHTML = summaryHtml;
-
-      // Approval Gate
-      const gate = document.getElementById("approvalGateContainer");
-      if (!isContained && plan && plan.selected_node_ids.length > 0) {
-        gate.style.display = "flex";
-        document.getElementById("approvalCutSummary").textContent = `${plan.selected_node_names.join(" + ")} (Cost: ${plan.total_cost})`;
-      } else {
-        gate.style.display = "none";
-      }
-
-      // 2. Paths Tab
-      document.getElementById("pathCountBadge").textContent = `${pathsCount} PATHS`;
-      const pathsContainer = document.getElementById("pathsContainer");
-      if (pathsCount === 0) {
-        pathsContainer.innerHTML = `<p style="font-family: var(--font-mono); font-size: 0.78rem; color: #166534;">Verified: No reachable paths exist between source and target.</p>`;
-      } else {
-        pathsContainer.innerHTML = "";
-        analysis.discovered_paths.forEach((p, idx) => {
-          const pathDiv = document.createElement("div");
-          pathDiv.style.padding = "0.75rem";
-          pathDiv.style.background = "#ffffff";
-          pathDiv.style.border = "1px solid var(--border-line)";
-          pathDiv.style.borderRadius = "4px";
-
-          let stepsHtml = p.node_ids.map(nid => {
-            const isCut = plan && plan.selected_node_ids.includes(nid);
-            return `<span class="path-step-badge ${isCut ? 'highlight-cut' : ''}">${nid}</span>`;
-          }).join(" &rarr; ");
-
-          pathDiv.innerHTML = `
-            <div style="font-family: var(--font-mono); font-size: 0.74rem; font-weight: 700; color: var(--fg-secondary); margin-bottom: 0.35rem;">
-              PATH ${idx + 1} (${p.hops} HOPS)
-            </div>
-            <div>${stepsHtml}</div>
-          `;
-          pathsContainer.appendChild(pathDiv);
-        });
-      }
-
-      // 3. Centrality Tab
-      const centBody = document.querySelector("#centralityTable tbody");
-      centBody.innerHTML = "";
-      analysis.centrality_scores.forEach(c => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td><code>${c.entity_id}</code></td>
-          <td>${c.kind}</td>
-          <td><strong>${c.betweenness_score.toFixed(4)}</strong></td>
-        `;
-        centBody.appendChild(row);
-      });
-
-      // Blast Radius Tab
-      const candBody = document.querySelector("#candidateTable tbody");
-      candBody.innerHTML = "";
-      analysis.eligible_candidates.forEach(c => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td><code>${c.entity_id}</code></td>
-          <td>${c.cost}</td>
-          <td>${c.downstream_services.join(", ") || "None"}</td>
-          <td><strong>${c.blast_radius_cost}</strong></td>
-        `;
-        candBody.appendChild(row);
-      });
-
-      // 4. Mirror Tab
-      const mirror = analysis.mirror_simulation;
-      const mirrorContainer = document.getElementById("mirrorDetailsContainer");
-      if (mirror) {
-        document.getElementById("mirrorStatusBadge").textContent = `SIMULATED (${mirror.remaining_paths} PATHS REMAINING)`;
-        mirrorContainer.innerHTML = `
-          <div style="font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.6;">
-            <div>Mirror Graph: <code>${mirror.mirror_graph_name}</code></div>
-            <div>Simulated Candidates: <code>${(plan ? plan.selected_node_ids : []).join(", ")}</code></div>
-            <div>Post-Simulation Remaining Paths: <strong>${mirror.remaining_paths}</strong></div>
-            <div>Simulation Runtime: <strong>${mirror.simulation_time_ms} ms</strong></div>
-            <div style="margin-top: 0.5rem; color: ${mirror.remaining_paths === 0 ? '#166534' : '#991b1b'};">
-              ${mirror.remaining_paths === 0 ? 'STATUS: VERIFIED CONTAINED IN SHADOW GRAPH' : 'WARNING: PATHS STILL REMAIN'}
-            </div>
-          </div>
-        `;
-      }
-
-      // 5. Receipt Tab
-      const receiptEl = document.getElementById("receiptJsonDisplay");
-      if (analysis.audit_receipt) {
-        receiptEl.textContent = JSON.stringify(analysis.audit_receipt, null, 2);
-      }
-    }
-
-    // Commit Containment
-    btnCommitContainment.addEventListener("click", async () => {
-      if (!currentAnalysis || !currentAnalysis.recommended_plan) return;
-      const plan = currentAnalysis.recommended_plan;
-
-      btnCommitContainment.disabled = true;
-      btnCommitContainment.textContent = "COMMITTING MUTATION TO FALKORDB...";
-
-      try {
-        const res = await fetch("/api/contain", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            source_id: currentAnalysis.source_id,
-            target_id: currentAnalysis.target_id,
-            cut_node_ids: plan.selected_node_ids,
-          }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.detail || "Containment commit failed");
-        }
-
-        const data = await res.json();
-        currentReceipt = data.receipt;
-
-        document.getElementById("approvalGateContainer").style.display = "none";
-        document.getElementById("postActionBox").style.display = "block";
-        document.getElementById("postActionText").innerHTML = `
-          Containment successfully applied in <code>prod_graph</code>! Isolated nodes: <strong>${plan.selected_node_ids.join(", ")}</strong>.<br>
-          Fresh bounded query verified: <strong>0 active paths remain</strong>.<br>
-          SHA-256 Post-State Hash: <code>${data.receipt.post_mitigation_graph_hash}</code>
-        `;
-
-        document.getElementById("receiptJsonDisplay").textContent = JSON.stringify(data.receipt, null, 2);
-        checkHealth();
-      } catch (err) {
-        alert("Containment commit error: " + err.message);
-      } finally {
-        btnCommitContainment.disabled = false;
-        btnCommitContainment.textContent = "Authorize & Commit Containment Action";
-      }
-    });
-
-    // Reset Graph
-    btnResetGraph.addEventListener("click", async () => {
-      btnResetGraph.disabled = true;
-      btnResetGraph.textContent = "RESETTING GRAPH...";
-      try {
-        const res = await fetch("/api/reset", { method: "POST" });
-        if (!res.ok) throw new Error("Reset failed");
-        alert("Graph restored to pristine seed topology.");
-        document.getElementById("postActionBox").style.display = "none";
-        checkHealth();
-        runInvestigation();
-      } catch (err) {
-        alert("Reset failed: " + err.message);
-      } finally {
-        btnResetGraph.disabled = false;
-        btnResetGraph.textContent = "Reset Graph to Seed";
-      }
-    });
-
-    // Stress Testing: Cost Mutation
-    btnApplyCostMutation.addEventListener("click", async () => {
-      const nodeId = document.getElementById("inputMutateNode").value.trim();
-      const newCost = parseInt(document.getElementById("inputMutateCost").value.trim(), 10);
-      if (!nodeId || isNaN(newCost)) return;
-
-      try {
-        const res = await fetch("/api/stress/cost", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ node_id: nodeId, new_cost: newCost }),
-        });
-        if (!res.ok) throw new Error("Mutation failed");
-        alert(`Node ${nodeId} disruption cost updated to ${newCost}.`);
-        runInvestigation();
-      } catch (err) {
-        alert("Cost mutation failed: " + err.message);
-      }
-    });
-
-    // Stress Testing: Toggle Bypass
-    let bypassInjected = false;
-    btnToggleBypass.addEventListener("click", async () => {
-      try {
-        const action = bypassInjected ? "remove" : "inject";
-        const res = await fetch("/api/stress/bypass", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: action }),
-        });
-        if (!res.ok) throw new Error("Bypass operation failed");
-        bypassInjected = !bypassInjected;
-        btnToggleBypass.textContent = bypassInjected ? "Remove Injected Bypass" : "Inject Bypass Route";
-        alert(bypassInjected ? "Injected bypass route from ci_runner directly to signing_key." : "Removed injected bypass route.");
-        runInvestigation();
-      } catch (err) {
-        alert("Bypass failure: " + err.message);
-      }
-    });
-
-    // Download Receipt
-    btnDownloadReceipt.addEventListener("click", () => {
-      if (!currentReceipt) {
-        alert("No receipt generated yet.");
-        return;
-      }
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentReceipt, null, 2));
-      const dlAnchor = document.createElement("a");
-      dlAnchor.setAttribute("href", dataStr);
-      dlAnchor.setAttribute("download", `receipt-${currentReceipt.incident_id || "audit"}.json`);
-      document.body.appendChild(dlAnchor);
-      dlAnchor.click();
-      dlAnchor.remove();
-    });
-  </script>
+    <p class="footer__wordmark" aria-hidden="true">Driftbar</p>
+    <div class="footer__fog" aria-hidden="true"></div>
+    <div class="footer__content">
+      <div class="brand">
+        <a class="brand__logo" href="#" aria-label="Driftbar home">
+          <span class="brand__mark"></span>Driftbar
+        </a>
+        <h2 class="brand__title">The calm bar for macOS</h2>
+        <p class="brand__text">Driftbar gathers music, tasks, meetings, weather, search, focus timers, quick notes, and more handy widgets into one calm floating bar just above your Mac Dock.</p>
+        <a class="brand__cta" href="#">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M17.05 12.54c-.03-2.75 2.25-4.07 2.35-4.14-1.28-1.87-3.27-2.13-3.98-2.16-1.69-.17-3.3 1-4.16 1-.86 0-2.18-.97-3.59-.95-1.85.03-3.55 1.07-4.5 2.72-1.92 3.33-.49 8.25 1.38 10.95.91 1.32 2 2.8 3.43 2.75 1.38-.06 1.9-.89 3.56-.89 1.66 0 2.13.89 3.59.86 1.48-.03 2.42-1.34 3.33-2.67 1.05-1.53 1.48-3.02 1.5-3.1-.03-.01-2.88-1.1-2.91-4.37ZM14.31 4.46c.76-.92 1.27-2.2 1.13-3.46-1.09.04-2.41.73-3.19 1.64-.7.81-1.31 2.1-1.15 3.34 1.22.09 2.46-.62 3.21-1.52Z"/>
+          </svg>
+          Get Driftbar today
+        </a>
+        <p class="brand__copy">© 2026 Driftbar Inc. - Made in Lisbon.</p>
+        <p class="brand__by">
+          Built with <span class="brand__heart" aria-label="love">💙</span> by <span class="brand__author"><span class="brand__avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><rect width="24" height="24" fill="#e6e6e3" /><circle cx="12" cy="9.2" r="4.4" fill="#1b1b1b" /><path d="M3 25c0-6 4-9.4 9-9.4S21 19 21 25Z" fill="#1b1b1b" /></svg></span>Mira Okafor</span>
+        </p>
+        <ul class="brand__status" aria-label="Driftbar status">
+          <li class="chip"><span class="chip__dot" aria-hidden="true"></span>9,400 Macs in sync</li>
+          <li class="chip">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></svg>
+            v1.8 · Shipped today
+          </li>
+          <li class="chip">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-2.9-5.4 2.9 1.1-6L3.2 9.4l6.1-.8Z" /></svg>
+            Rated 4.8 avg
+          </li>
+        </ul>
+      </div>
+      <nav class="col col--menu" aria-label="Menu">
+        <h3 class="col__title">Menu</h3>
+        <ul class="col__list">
+          <li><a href="#">Tour</a></li>
+          <li><a href="#">Showcase</a></li>
+          <li><a href="#">Q&amp;A</a></li>
+          <li><a href="#">Licence</a></li>
+          <li><a href="#">Journal</a></li>
+        </ul>
+      </nav>
+      <nav class="col" aria-label="Essentials">
+        <h3 class="col__title">Essentials</h3>
+        <ul class="col__list">
+          <li><a href="#">Support</a></li>
+          <li><a href="#">Up next</a></li>
+          <li><a href="#">Privacy notice</a></li>
+          <li><a href="#">Usage guidelines</a></li>
+          <li><a href="#">Manage licences</a></li>
+        </ul>
+      </nav>
+      <nav class="col" aria-label="From our team">
+        <h3 class="col__title">From our team</h3>
+        <ul class="col__list">
+          <li><a href="#">Clipnest.io</a></li>
+          <li><a href="#">Tallyo.io</a></li>
+          <li><a href="#">Pinwell.io</a></li>
+          <li><a href="#">Glyfo.co</a></li>
+          <li><a href="#">Shelfmark.app</a></li>
+          <li><a href="#">Wireloom.com</a></li>
+          <li><a href="#">Gridcraft.app</a></li>
+        </ul>
+      </nav>
+    </div>
+  </footer>
 </body>
 </html>

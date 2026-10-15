@@ -526,12 +526,11 @@ def http_client():
 
 
 def test_fastapi_index_html_serving(http_client):
-    """Verify clean-room brutalist frontend/index.html is served on GET /."""
+    """Verify exact Driftbar Meadow Footer index.html is served on GET /."""
     res = http_client.get("/")
     assert res.status_code == 200
-    assert "TEZCATL" in res.text
+    assert "Driftbar" in res.text
     assert "#f1f1ee" in res.text
-    assert "FALKORDB" in res.text
 
 
 def test_fastapi_health_endpoint(http_client):
