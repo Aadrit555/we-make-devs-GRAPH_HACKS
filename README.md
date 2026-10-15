@@ -15,7 +15,8 @@
 [![Zero External APIs](https://img.shields.io/badge/Keys-Zero%20External%20APIs-success)](#)
 
 > **TEZCATL** is a sovereign, zero-API-key autonomous agent that solves multi-hop cloud security breaches by leveraging FalkorDB graph traversals, native centrality algorithms (`algo.betweenness`), dynamic downstream service blast-radius calculations, and isolated shadow-mirror sandbox verification (`tezcatl_mirror`).
-
+>
+> *Powered by native FalkorDB algorithms and 100% first-party deterministic graph orchestration. Zero external APIs. Zero third-party agent wrappers.*
 ---
 
 ## The Problem: Why Vector RAG & SQL Fail at Security Reachability
