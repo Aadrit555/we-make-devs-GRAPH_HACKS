@@ -1,7 +1,7 @@
 """
 seed.py - Seed the FalkorDB graph for TEZCATL.
 
-WARNING: This script resets and seeds the designated FalkorDB graph (e.g. 'prod_graph' and 'cutline_demo').
+Resets and seeds the designated FalkorDB graph ('prod_graph').
 Sets up both the attack topology (ATTACK_STEP) and downstream operational dependencies (DEPENDS_ON)
 with revenue_impact_scores for dynamic blast-radius calculation.
 """
@@ -167,14 +167,6 @@ def seed_database(host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_na
         sys.exit(1)
 
     seed_single_graph(target_graph, graph_name)
-
-    # If target is prod_graph, also seed cutline_demo for backwards compatibility
-    if graph_name != "cutline_demo":
-        try:
-            demo_graph = db.select_graph("cutline_demo")
-            seed_single_graph(demo_graph, "cutline_demo")
-        except Exception:
-            pass
 
     # Verify counts on target graph
     node_res = target_graph.query("MATCH (n:Entity) RETURN count(n) AS cnt")

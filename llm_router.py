@@ -12,7 +12,7 @@ from enum import Enum
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field, ConfigDict
 from config import settings
-from graph_client import ReadOnlyGraphClient, AttackPath, CentralityScore, validate_node_id
+from graph_client import ReadOnlyGraphClient, AttackPath, CentralityScore
 
 
 class AgentIntent(str, Enum):

@@ -1,5 +1,5 @@
 """
-cut_set_calculator.py — Pure, deterministic minimum-cost vertex-cut engine for CUTLINE v2.
+cut_set_calculator.py — Pure, deterministic minimum-cost vertex-cut engine for TEZCATL.
 
 This module contains pure combinatorial mathematics.
 It has NO database connection, NO FalkorDB client dependency,
@@ -38,16 +38,6 @@ class CutPlan(BaseModel):
     def action_ids(self) -> List[str]:
         """Convenience property matching test expectations."""
         return self.selected_node_ids
-
-
-class CandidateAlternative(BaseModel):
-    """Alternative valid or partial candidate subset evaluated during calculation."""
-    model_config = ConfigDict(extra="forbid")
-
-    node_ids: List[str]
-    total_cost: int = Field(ge=0)
-    is_valid_cut: bool
-    paths_covered: int = Field(ge=0)
 
 
 class NoValidCutError(Exception):

@@ -90,9 +90,9 @@ ci_runner ──[E-001]──> deploy_token   ──[E-002]──> deploy_role  
 
 ### 1. Start FalkorDB Container
 ```powershell
-docker run -d --name cutline-falkordb --restart unless-stopped `
+docker run -d --name tezcatl-falkordb --restart unless-stopped `
   -p 127.0.0.1:6379:6379 -p 127.0.0.1:3000:3000 `
-  -v cutline_falkordb_data:/var/lib/falkordb/data `
+  -v tezcatl_falkordb_data:/var/lib/falkordb/data `
   falkordb/falkordb:latest
 ```
 - FalkorDB Browser UI: `http://localhost:3000`

@@ -13,13 +13,14 @@ from cut_set_calculator import (
     CandidateCapExceededError,
     InvalidCandidateDataError,
 )
+from config import settings
 from logic import ContainmentService
 from graph_client import FalkorGraphClient
 import seed
 
-FALKORDB_HOST = os.getenv("FALKORDB_HOST", "127.0.0.1")
-FALKORDB_PORT = int(os.getenv("FALKORDB_PORT", "6379"))
-GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "cutline_demo")
+FALKORDB_HOST = settings.falkordb_host
+FALKORDB_PORT = settings.falkordb_port
+GRAPH_NAME = settings.falkordb_graph
 
 
 @pytest.fixture(scope="module", autouse=True)

@@ -1,14 +1,26 @@
-venv/
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Environments
 .env
 .env.*
 !.env.example
+venv/
+.venv/
+env/
+
+# Testing cache
 .pytest_cache/
+
+# Databases & local persistent storage
 *.rdb
 *.dump
 *.db
+
+# Operating System & IDE artifacts
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
-
