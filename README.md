@@ -143,3 +143,28 @@ Open `http://localhost:8501` in your browser.
 
 This project was engineered following the anti-vibecoding specifications in `BUILD_INSTRUCTIONS.md`. All algorithms, Cypher queries, and tests were written, executed, and validated on live FalkorDB container instances. The LLM integration is strictly restricted to user intent routing and evidence summarization.
 
+---
+
+## 8. 120-Second Demo Video Walkthrough & Checklist
+
+Follow this exact timeline when recording the 2-minute demonstration:
+
+- **00:00 – 00:20 | Incident Overview & Architecture:**
+  - Launch Streamlit console at `http://localhost:8501`.
+  - Highlight the incident parameters: Compromised source `ci_runner`, target `signing_key` (crown jewel), bounded to $\le 8$ hops.
+  - Note the live FalkorDB connection status in the sidebar.
+- **00:20 – 00:45 | Multi-Hop Discovery & Evidence Grounding:**
+  - Click **"🔍 Investigate & Plan"**.
+  - Show Tab 1: 3 active directed attack paths discovered by Query 1, traversing credentials, roles, and services. Point out evidence IDs (`E-001` through `E-010`) and mechanisms.
+- **00:45 – 01:05 | Centrality vs. Containment Proof:**
+  - Switch to Tab 2: Show native `algo.betweenness` scores where `release_controller` scores highest (12.0).
+  - Clarify the core insight: High centrality $\ne$ minimum-cost containment.
+- **01:05 – 01:30 | Deterministic Cost-5 vs. Cost-10 Decision:**
+  - Switch to Tab 3: Compare candidate mitigation costs from FalkorDB (`deploy_token` = 2, `artifact_token` = 3, `release_controller` = 10).
+  - Demonstrate that the pure cut-set engine selected the two credential revocations at total cost **5**, rejecting the disruptive controller shutdown at cost **10**.
+- **01:30 – 02:00 | Human Approval & Fresh Closed-Loop Verification:**
+  - Switch to Tab 4: Review the pending action warning.
+  - Click **"🚨 Approve and Apply Containment Plan"**.
+  - Show live FalkorDB mutation (2 nodes disabled, 5 relationships deactivated).
+  - Emphasize the fresh post-action Cypher verification query returning **0 active paths** to the crown jewel.
+
