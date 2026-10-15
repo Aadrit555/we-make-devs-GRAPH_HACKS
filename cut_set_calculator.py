@@ -4,11 +4,12 @@ cut_set_calculator.py — Pure, deterministic minimum-cost vertex-cut engine for
 This module contains pure combinatorial mathematics.
 It has NO database connection, NO FalkorDB client dependency,
 NO Streamlit imports, and NO LLM calls.
+All Pydantic models are strictly validated with extra='forbid'.
 """
 
 from typing import List, Set, Dict, Optional, Tuple
 from itertools import combinations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 # Maximum allowed candidate nodes for exhaustive evaluation (2^18 - 1 = 262,143 combinations)
 MAX_CANDIDATE_CAP = 18
@@ -16,11 +17,13 @@ MAX_CANDIDATE_CAP = 18
 
 class CutPlan(BaseModel):
     """Authoritative output of the minimum-cost cut-set calculation."""
+    model_config = ConfigDict(extra="forbid")
+
     selected_node_ids: List[str]
     selected_node_names: List[str]
     total_cost: int = Field(ge=0, description="Sum of modeled costs of selected mitigation entities")
-    paths_evaluated_count: int
-    paths_covered_count: int
+    paths_evaluated_count: int = Field(ge=0)
+    paths_covered_count: int = Field(ge=0)
     covered_path_indices: List[int]
     path_intersections: Dict[str, List[int]] = Field(
         default_factory=dict,
@@ -39,25 +42,30 @@ class CutPlan(BaseModel):
 
 class CandidateAlternative(BaseModel):
     """Alternative valid or partial candidate subset evaluated during calculation."""
+    model_config = ConfigDict(extra="forbid")
+
     node_ids: List[str]
-    total_cost: int
+    total_cost: int = Field(ge=0)
     is_valid_cut: bool
-    paths_covered: int
+    paths_covered: int = Field(ge=0)
 
 
 class NoValidCutError(Exception):
     """Raised when no combination of available candidates severs all attack paths."""
-    pass
+    def __init__(self, message: str):
+        super().__init__(message)
 
 
 class CandidateCapExceededError(Exception):
     """Raised when candidate count exceeds the exhaustive search safety cap."""
-    pass
+    def __init__(self, message: str):
+        super().__init__(message)
 
 
 class InvalidCandidateDataError(ValueError):
     """Raised when input candidate data violates domain invariants."""
-    pass
+    def __init__(self, message: str):
+        super().__init__(message)
 
 
 def compute_minimum_cost_cut(
@@ -149,21 +157,17 @@ def compute_minimum_cost_cut(
     all_path_indices = set(range(total_paths))
 
     # 7. Combinatorial search for minimum-cost vertex cut
-    # Exhaustively search subsets of increasing size r = 1..len(eligible_candidates)
     valid_cuts: List[Tuple[int, int, Tuple[str, ...]]] = []
 
     for r in range(1, len(eligible_candidates) + 1):
         for combo in combinations(eligible_candidates, r):
-            # Union of covered paths
             covered_indices: Set[int] = set()
             for cand in combo:
                 covered_indices.update(node_to_path_indices[cand])
 
             if covered_indices == all_path_indices:
                 cost = sum(candidate_costs[cand] for cand in combo)
-                # Sort IDs in tuple for deterministic tie-breaking
                 sorted_combo = tuple(sorted(combo))
-                # Ranking key: (total_cost, number_of_nodes, sorted_node_ids)
                 valid_cuts.append((cost, len(combo), sorted_combo))
 
     # 8. Check if any valid cut exists
@@ -197,4 +201,3 @@ def compute_minimum_cost_cut(
         path_intersections=path_intersections,
         explanation=" ".join(explanation_parts)
     )
-

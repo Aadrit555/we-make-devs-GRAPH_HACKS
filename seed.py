@@ -13,9 +13,15 @@ from falkordb import FalkorDB
 
 load_dotenv()
 
-FALKORDB_HOST = os.getenv("FALKORDB_HOST", "127.0.0.1")
-FALKORDB_PORT = int(os.getenv("FALKORDB_PORT", "6379"))
-GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "cutline_demo")
+try:
+    from config import settings
+    FALKORDB_HOST = settings.falkordb_host
+    FALKORDB_PORT = settings.falkordb_port
+    GRAPH_NAME = settings.falkordb_graph
+except Exception:
+    FALKORDB_HOST = os.getenv("FALKORDB_HOST", "127.0.0.1")
+    FALKORDB_PORT = int(os.getenv("FALKORDB_PORT", "6379"))
+    GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "cutline_demo")
 
 # Section 5 exact entity records
 NODES = [

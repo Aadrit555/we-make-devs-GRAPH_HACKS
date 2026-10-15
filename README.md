@@ -4,7 +4,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![Pydantic](https://img.shields.io/badge/Validation-Pydantic%20v2-green)](https://pydantic.dev/)
 [![Streamlit](https://img.shields.io/badge/UI-Streamlit-red)](https://streamlit.io/)
-[![Tests](https://img.shields.io/badge/Tests-33%20Passed-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-39%20Passed-brightgreen)](tests/)
 
 **CUTLINE v2** is a graph-native attack-path containment planner built for the **WeMakeDevs / FalkorDB Graph Hacks Hackathon (Track 01: Agents That Act on Connected Data)**.
 

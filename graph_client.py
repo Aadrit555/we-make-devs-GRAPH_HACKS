@@ -1,49 +1,104 @@
 """
-graph_client.py — Live FalkorDB graph client for CUTLINE v2.
+graph_client.py — Hardened FalkorDB graph client for CUTLINE v2.
 
-Owns parameterized OpenCypher queries, Pydantic domain models for query results,
-and direct interaction with the FalkorDB database instance.
-No UI code or LLM code belongs in this module.
+Owns parameterized OpenCypher queries, Pydantic domain models with strict validation,
+query telemetry instrumentation, and read/write segregation.
+No UI or LLM logic belongs in this module.
 """
 
+import re
+import time
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
-import os
-from dotenv import load_dotenv
+from pydantic import BaseModel, Field, ConfigDict
 from falkordb import FalkorDB
+from config import settings
 
-load_dotenv()
+DEFAULT_HOST = settings.falkordb_host
+DEFAULT_PORT = settings.falkordb_port
+DEFAULT_GRAPH = settings.falkordb_graph
 
-DEFAULT_HOST = os.getenv("FALKORDB_HOST", "127.0.0.1")
-DEFAULT_PORT = int(os.getenv("FALKORDB_PORT", "6379"))
-DEFAULT_GRAPH = os.getenv("FALKORDB_GRAPH", "cutline_demo")
+# Strict node ID validation regex: alphanumeric, underscores, hyphens; 1 to 64 chars
+NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+
+
+def validate_node_id(node_id: str) -> str:
+    """Validate entity identifier against strict security regex before passing to graph."""
+    if not isinstance(node_id, str) or not NODE_ID_REGEX.match(node_id):
+        raise ValueError(
+            f"Invalid node identifier '{node_id}'. Must be 1-64 alphanumeric, underscore, or hyphen characters."
+        )
+    return node_id
 
 
 # ==============================================================================
-# Pydantic Domain Models
+# Typed Exceptions
 # ==============================================================================
+
+class DatabaseConnectionError(ConnectionError):
+    """Raised when FalkorDB host is unreachable or disconnected."""
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class GraphQueryError(RuntimeError):
+    """Raised when a Cypher query fails execution on FalkorDB."""
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class EvidenceUnavailableError(RuntimeError):
+    """Raised when graph evidence or expected query result sets are missing."""
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+# ==============================================================================
+# Pydantic Domain & Telemetry Models (Strict: extra="forbid")
+# ==============================================================================
+
+class QueryTelemetry(BaseModel):
+    """Execution telemetry captured directly from live FalkorDB query execution."""
+    model_config = ConfigDict(extra="forbid")
+
+    query: str
+    params: Dict[str, Any]
+    latency_ms: float = Field(ge=0.0, description="Internal execution time reported by FalkorDB (ms)")
+    client_latency_ms: float = Field(ge=0.0, description="Client roundtrip execution latency (ms)")
+    nodes_created: int = Field(default=0, ge=0)
+    nodes_deleted: int = Field(default=0, ge=0)
+    relationships_created: int = Field(default=0, ge=0)
+    relationships_deleted: int = Field(default=0, ge=0)
+    properties_set: int = Field(default=0, ge=0)
+    raw_stats: List[str] = Field(default_factory=list)
+
 
 class AttackPath(BaseModel):
     """Structured representation of an active directed attack path."""
+    model_config = ConfigDict(extra="forbid")
+
     node_ids: List[str]
     node_names: List[str]
     node_kinds: List[str]
     mechanisms: List[str]
     evidence_ids: List[str]
-    hops: int
+    hops: int = Field(ge=1, le=8)
 
 
 class CentralityScore(BaseModel):
     """Betweenness centrality score for a graph entity."""
-    id: str
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]{1,64}$")
     name: str
     kind: str
-    score: float
+    score: float = Field(ge=0.0)
 
 
 class MitigationCandidate(BaseModel):
     """Candidate entity for containment consideration."""
-    id: str
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]{1,64}$")
     name: str
     kind: str
     criticality: str
@@ -52,22 +107,42 @@ class MitigationCandidate(BaseModel):
 
 
 class MutationResult(BaseModel):
-    """Result of applying simulated containment mutation."""
+    """Result of applying simulated containment or test topology mutation."""
+    model_config = ConfigDict(extra="forbid")
+
     disabled_ids: List[str]
-    updated_node_count: int
-    updated_edge_count: int
+    updated_node_count: int = Field(ge=0)
+    updated_edge_count: int = Field(ge=0)
 
 
 # ==============================================================================
-# OpenCypher Query Strings (Parameterized)
+# OpenCypher Query Strings (100% Parameterized — Zero Interpolation)
 # ==============================================================================
 
-# Query 1: Bounded directed multi-hop discovery
-QUERY_DISCOVER_PATHS = """
+# Query 1A: Crown jewel bounded directed multi-hop discovery
+QUERY_DISCOVER_PATHS_CROWN_JEWEL = """
 MATCH p =
     (src:Entity {id: $source_id})
     -[:ATTACK_STEP*1..8]->
     (target:Entity {criticality: 'crown_jewel'})
+WHERE ALL(r IN relationships(p) WHERE r.active = true)
+  AND ALL(n IN nodes(p) WHERE n.status <> 'disabled')
+RETURN
+    [n IN nodes(p) | n.id] AS node_ids,
+    [n IN nodes(p) | n.name] AS node_names,
+    [n IN nodes(p) | n.kind] AS node_kinds,
+    [r IN relationships(p) | r.mechanism] AS mechanisms,
+    [r IN relationships(p) | r.evidence_id] AS evidence_ids,
+    length(p) AS hops
+ORDER BY hops ASC
+"""
+
+# Query 1B: Specific target bounded directed multi-hop discovery
+QUERY_DISCOVER_PATHS_TARGET = """
+MATCH p =
+    (src:Entity {id: $source_id})
+    -[:ATTACK_STEP*1..8]->
+    (target:Entity {id: $target_id})
 WHERE ALL(r IN relationships(p) WHERE r.active = true)
   AND ALL(n IN nodes(p) WHERE n.status <> 'disabled')
 RETURN
@@ -95,11 +170,24 @@ RETURN
 ORDER BY score DESC
 """
 
-# Query 3: Counterfactual verification / zero-path check
-QUERY_COUNTERFACTUAL_PATHS = """
+# Query 3A: Counterfactual verification / zero-path check (crown jewel default)
+QUERY_COUNTERFACTUAL_PATHS_CROWN_JEWEL = """
 MATCH
     (src:Entity {id: $source_id}),
     (target:Entity {criticality: 'crown_jewel'})
+OPTIONAL MATCH p =
+    (src)-[:ATTACK_STEP*1..8]->(target)
+WHERE ALL(r IN relationships(p) WHERE r.active = true)
+  AND ALL(n IN nodes(p) WHERE n.status <> 'disabled')
+  AND NONE(n IN nodes(p) WHERE n.id IN $severed_ids)
+RETURN count(p) AS remaining_path_count
+"""
+
+# Query 3B: Counterfactual verification / zero-path check (explicit target)
+QUERY_COUNTERFACTUAL_PATHS_TARGET = """
+MATCH
+    (src:Entity {id: $source_id}),
+    (target:Entity {id: $target_id})
 OPTIONAL MATCH p =
     (src)-[:ATTACK_STEP*1..8]->(target)
 WHERE ALL(r IN relationships(p) WHERE r.active = true)
@@ -141,6 +229,42 @@ SET r.active = false
 RETURN count(r) AS updated_edge_count
 """
 
+# Stress-testing queries (strictly parameterized)
+QUERY_LIST_ENTITIES = """
+MATCH (n:Entity)
+RETURN
+    n.id AS id,
+    n.name AS name,
+    n.kind AS kind,
+    n.criticality AS criticality,
+    n.cost AS cost,
+    n.status AS status
+ORDER BY n.id ASC
+"""
+
+QUERY_INJECT_BYPASS_EDGE = """
+MATCH (src:Entity {id: $source_id})
+MATCH (dst:Entity {id: $target_id})
+CREATE (src)-[r:ATTACK_STEP {
+    mechanism: 'Injected stress-test bypass route',
+    active: true,
+    evidence_id: $evidence_id
+}]->(dst)
+RETURN count(r) AS edges_created
+"""
+
+QUERY_REMOVE_BYPASS_EDGE = """
+MATCH ()-[r:ATTACK_STEP {evidence_id: $evidence_id}]->()
+DELETE r
+RETURN count(r) AS edges_deleted
+"""
+
+QUERY_UPDATE_NODE_COST = """
+MATCH (n:Entity {id: $node_id})
+SET n.cost = $new_cost
+RETURN n.id AS id, n.cost AS cost
+"""
+
 
 # ==============================================================================
 # FalkorDB Graph Client Class
@@ -155,6 +279,8 @@ class FalkorGraphClient:
         self.graph_name = graph_name
         self._db: Optional[FalkorDB] = None
         self._graph = None
+        self.last_telemetry: Optional[QueryTelemetry] = None
+        self.telemetry_history: List[QueryTelemetry] = []
 
     def connect(self):
         """Establish connection to FalkorDB and select graph."""
@@ -162,7 +288,7 @@ class FalkorGraphClient:
             self._db = FalkorDB(host=self.host, port=self.port)
             self._graph = self._db.select_graph(self.graph_name)
         except Exception as exc:
-            raise ConnectionError(f"Failed to connect to FalkorDB at {self.host}:{self.port}: {exc}") from exc
+            raise DatabaseConnectionError(f"Failed to connect to FalkorDB at {self.host}:{self.port}: {exc}") from exc
 
     @property
     def graph(self):
@@ -172,28 +298,74 @@ class FalkorGraphClient:
         return self._graph
 
     def check_connection(self) -> bool:
-        """Verify database connectivity with a live query."""
+        """Verify database connectivity with a live ping query."""
         try:
             res = self.graph.query("RETURN 1 AS ping")
             return res.result_set is not None and len(res.result_set) == 1 and res.result_set[0][0] == 1
         except Exception:
             return False
 
-    def discover_attack_paths(self, source_id: str, max_hops: int = 8) -> List[AttackPath]:
+    def _execute_query(
+        self,
+        query: str,
+        params: Optional[Dict[str, Any]] = None,
+        read_only: bool = False
+    ):
         """
-        Query 1: Discover all active directed attack paths from source_id to crown_jewel.
-        Traverses active ATTACK_STEP relationships up to max_hops (max 8).
+        Internal execution wrapper that captures live FalkorDB telemetry and measures latency.
+        Guarantees strictly typed error handling and zero silent fallbacks.
         """
-        if not source_id:
-            raise ValueError("source_id must not be empty")
-        if max_hops != 8:
-            # Enforce 8-hop bound as specified in the schema contract
-            pass
+        start_client_time = time.perf_counter()
+        clean_params = params or {}
 
         try:
-            res = self.graph.query(QUERY_DISCOVER_PATHS, {"source_id": source_id})
+            res = self.graph.query(query, clean_params)
         except Exception as exc:
-            raise RuntimeError(f"Error querying attack paths from FalkorDB: {exc}") from exc
+            raise GraphQueryError(f"FalkorDB query execution failed: {exc}") from exc
+
+        client_duration_ms = (time.perf_counter() - start_client_time) * 1000.0
+        internal_runtime_ms = getattr(res, "run_time_ms", client_duration_ms) or client_duration_ms
+
+        telemetry = QueryTelemetry(
+            query=query.strip(),
+            params=clean_params,
+            latency_ms=round(float(internal_runtime_ms), 4),
+            client_latency_ms=round(float(client_duration_ms), 4),
+            nodes_created=int(getattr(res, "nodes_created", 0) or 0),
+            nodes_deleted=int(getattr(res, "nodes_deleted", 0) or 0),
+            relationships_created=int(getattr(res, "relationships_created", 0) or 0),
+            relationships_deleted=int(getattr(res, "relationships_deleted", 0) or 0),
+            properties_set=int(getattr(res, "properties_set", 0) or 0),
+            raw_stats=list(getattr(res, "_raw_stats", []) or [])
+        )
+        self.last_telemetry = telemetry
+        self.telemetry_history.append(telemetry)
+        return res
+
+    def discover_attack_paths(
+        self,
+        source_id: str,
+        target_id: Optional[str] = None,
+        max_hops: int = 8
+    ) -> List[AttackPath]:
+        """
+        Query 1: Discover all active directed attack paths from source_id within max_hops.
+        If target_id is omitted, discovers paths to crown_jewel entities.
+        """
+        validate_node_id(source_id)
+        if target_id is not None:
+            validate_node_id(target_id)
+        if max_hops < 1 or max_hops > 8:
+            raise ValueError(f"max_hops must be between 1 and 8, got {max_hops}")
+
+        if target_id:
+            query = QUERY_DISCOVER_PATHS_TARGET
+            params = {"source_id": source_id, "target_id": target_id}
+        else:
+            query = QUERY_DISCOVER_PATHS_CROWN_JEWEL
+            params = {"source_id": source_id}
+
+        res = self._execute_query(query, params, read_only=True)
 
         paths: List[AttackPath] = []
         for record in res.result_set:
@@ -219,10 +391,7 @@ class FalkorGraphClient:
         Query 2: Execute native FalkorDB betweenness centrality procedure over ATTACK_STEP.
         Returns live centrality scores ordered descending.
         """
-        try:
-            res = self.graph.query(QUERY_BETWEENNESS_CENTRALITY)
-        except Exception as exc:
-            raise RuntimeError(f"Error executing algo.betweenness on FalkorDB: {exc}") from exc
+        res = self._execute_query(QUERY_BETWEENNESS_CENTRALITY, read_only=True)
 
         centrality_list: List[CentralityScore] = []
         for record in res.result_set:
@@ -238,29 +407,44 @@ class FalkorGraphClient:
             ))
         return centrality_list
 
-    def count_remaining_paths(self, source_id: str, severed_ids: Optional[List[str]] = None, max_hops: int = 8) -> int:
+    def count_remaining_paths(
+        self,
+        source_id: str,
+        severed_ids: Optional[List[str]] = None,
+        target_id: Optional[str] = None,
+        max_hops: int = 8
+    ) -> int:
         """
         Query 3: Counterfactual verification / zero-path check.
-        Counts how many directed active paths remain from source_id to crown jewel
+        Counts how many directed active paths remain from source_id to target/crown jewel
         if severed_ids were excluded.
         """
-        if not source_id:
-            raise ValueError("source_id must not be empty")
-        if severed_ids is None:
-            severed_ids = []
+        validate_node_id(source_id)
+        if target_id is not None:
+            validate_node_id(target_id)
+        if max_hops < 1 or max_hops > 8:
+            raise ValueError(f"max_hops must be between 1 and 8, got {max_hops}")
 
-        params = {
-            "source_id": source_id,
-            "severed_ids": severed_ids
-        }
+        clean_severed = [validate_node_id(sid) for sid in (severed_ids or [])]
 
-        try:
-            res = self.graph.query(QUERY_COUNTERFACTUAL_PATHS, params)
-        except Exception as exc:
-            raise RuntimeError(f"Error executing counterfactual path query on FalkorDB: {exc}") from exc
+        if target_id:
+            query = QUERY_COUNTERFACTUAL_PATHS_TARGET
+            params = {
+                "source_id": source_id,
+                "target_id": target_id,
+                "severed_ids": clean_severed
+            }
+        else:
+            query = QUERY_COUNTERFACTUAL_PATHS_CROWN_JEWEL
+            params = {
+                "source_id": source_id,
+                "severed_ids": clean_severed
+            }
+
+        res = self._execute_query(query, params, read_only=True)
 
         if not res.result_set or len(res.result_set) == 0:
-            raise RuntimeError("Counterfactual query returned an empty result set")
+            raise EvidenceUnavailableError("Counterfactual query returned an empty result set.")
 
         return int(res.result_set[0][0])
 
@@ -269,18 +453,17 @@ class FalkorGraphClient:
         Query 4: Fetch actual candidate entity records and synthetic costs from FalkorDB.
         Excludes source_id and crown_jewel target.
         """
+        validate_node_id(source_id)
         if not path_node_ids:
             return []
 
+        clean_path_node_ids = [validate_node_id(nid) for nid in path_node_ids]
         params = {
-            "path_node_ids": path_node_ids,
+            "path_node_ids": clean_path_node_ids,
             "source_id": source_id
         }
 
-        try:
-            res = self.graph.query(QUERY_CUT_CANDIDATES, params)
-        except Exception as exc:
-            raise RuntimeError(f"Error querying cut candidates from FalkorDB: {exc}") from exc
+        res = self._execute_query(QUERY_CUT_CANDIDATES, params, read_only=True)
 
         candidates: List[MitigationCandidate] = []
         for record in res.result_set:
@@ -305,27 +488,154 @@ class FalkorGraphClient:
         """
         Query 5: Apply simulated containment action to the graph state.
         Marks chosen nodes 'disabled' and incident ATTACK_STEP edges active = false.
+        This state mutation is strictly write-gated behind explicit human approval.
         """
         if not blocked_ids:
             return MutationResult(disabled_ids=[], updated_node_count=0, updated_edge_count=0)
 
-        params = {"blocked_ids": blocked_ids}
+        clean_blocked_ids = [validate_node_id(bid) for bid in blocked_ids]
+        params = {"blocked_ids": clean_blocked_ids}
 
-        try:
-            # 1. Update nodes
-            node_res = self.graph.query(QUERY_DISABLE_NODES, params)
-            disabled_ids = node_res.result_set[0][0] if node_res.result_set else []
-            updated_node_cnt = int(node_res.result_set[0][1]) if node_res.result_set else 0
+        # 1. Update nodes
+        node_res = self._execute_query(QUERY_DISABLE_NODES, params, read_only=False)
+        disabled_ids = node_res.result_set[0][0] if node_res.result_set else []
+        updated_node_cnt = int(node_res.result_set[0][1]) if node_res.result_set else 0
 
-            # 2. Update edges
-            edge_res = self.graph.query(QUERY_DEACTIVATE_EDGES, params)
-            updated_edge_cnt = int(edge_res.result_set[0][0]) if edge_res.result_set else 0
+        # 2. Update edges
+        edge_res = self._execute_query(QUERY_DEACTIVATE_EDGES, params, read_only=False)
+        updated_edge_cnt = int(edge_res.result_set[0][0]) if edge_res.result_set else 0
 
-            return MutationResult(
-                disabled_ids=disabled_ids,
-                updated_node_count=updated_node_cnt,
-                updated_edge_count=updated_edge_cnt
-            )
-        except Exception as exc:
-            raise RuntimeError(f"Error applying containment mutation to FalkorDB: {exc}") from exc
+        return MutationResult(
+            disabled_ids=disabled_ids,
+            updated_node_count=updated_node_cnt,
+            updated_edge_count=updated_edge_cnt
+        )
 
+    # --------------------------------------------------------------------------
+    # Interactive Stress-Testing & Topology Mutation Methods
+    # --------------------------------------------------------------------------
+
+    def list_entities(self) -> List[Dict[str, Any]]:
+        """Return all entity nodes currently present in FalkorDB."""
+        res = self._execute_query(QUERY_LIST_ENTITIES, read_only=True)
+        entities: List[Dict[str, Any]] = []
+        for record in res.result_set:
+            entities.append({
+                "id": record[0],
+                "name": record[1],
+                "kind": record[2],
+                "criticality": record[3],
+                "cost": int(record[4]),
+                "status": record[5]
+            })
+        return entities
+
+    def inject_bypass_edge(
+        self,
+        source_id: str,
+        target_id: str,
+        evidence_id: str = "E-STRESS-BYPASS"
+    ) -> MutationResult:
+        """
+        Stress-testing control: injects an active attack edge to test counterfactual recalculations.
+        """
+        validate_node_id(source_id)
+        validate_node_id(target_id)
+        validate_node_id(evidence_id)
+
+        params = {
+            "source_id": source_id,
+            "target_id": target_id,
+            "evidence_id": evidence_id
+        }
+        res = self._execute_query(QUERY_INJECT_BYPASS_EDGE, params, read_only=False)
+        created_count = int(res.result_set[0][0]) if res.result_set else 0
+        return MutationResult(disabled_ids=[], updated_node_count=0, updated_edge_count=created_count)
+
+    def remove_bypass_edge(self, evidence_id: str = "E-STRESS-BYPASS") -> MutationResult:
+        """Removes the injected stress-test bypass route."""
+        validate_node_id(evidence_id)
+        params = {"evidence_id": evidence_id}
+        res = self._execute_query(QUERY_REMOVE_BYPASS_EDGE, params, read_only=False)
+        deleted_count = int(res.result_set[0][0]) if res.result_set else 0
+        return MutationResult(disabled_ids=[], updated_node_count=0, updated_edge_count=deleted_count)
+
+    def update_node_cost(self, node_id: str, new_cost: int) -> MutationResult:
+        """Dynamically tweaks an entity's operational impact cost in FalkorDB."""
+        validate_node_id(node_id)
+        if not isinstance(new_cost, int) or new_cost < 0:
+            raise ValueError(f"new_cost must be non-negative integer, got {new_cost}")
+
+        params = {"node_id": node_id, "new_cost": new_cost}
+        self._execute_query(QUERY_UPDATE_NODE_COST, params, read_only=False)
+        return MutationResult(disabled_ids=[], updated_node_count=1, updated_edge_count=0)
+
+
+# ==============================================================================
+# Read-Only Investigation Client (Strict Interface Segregation for LLM Tools)
+# ==============================================================================
+
+class ReadOnlyGraphClient:
+    """
+    Read-only wrapper around FalkorGraphClient.
+    Physically prevents state mutation from LLM agent tools or unauthorized callers.
+    """
+
+    def __init__(self, client: FalkorGraphClient):
+        self._client = client
+
+    def check_connection(self) -> bool:
+        return self._client.check_connection()
+
+    @property
+    def last_telemetry(self) -> Optional[QueryTelemetry]:
+        return self._client.last_telemetry
+
+    @property
+    def telemetry_history(self) -> List[QueryTelemetry]:
+        return self._client.telemetry_history
+
+    def discover_attack_paths(
+        self,
+        source_id: str,
+        target_id: Optional[str] = None,
+        max_hops: int = 8
+    ) -> List[AttackPath]:
+        return self._client.discover_attack_paths(source_id=source_id, target_id=target_id, max_hops=max_hops)
+
+    def get_betweenness_centrality(self) -> List[CentralityScore]:
+        return self._client.get_betweenness_centrality()
+
+    def count_remaining_paths(
+        self,
+        source_id: str,
+        severed_ids: Optional[List[str]] = None,
+        target_id: Optional[str] = None,
+        max_hops: int = 8
+    ) -> int:
+        return self._client.count_remaining_paths(
+            source_id=source_id,
+            severed_ids=severed_ids,
+            target_id=target_id,
+            max_hops=max_hops
+        )
+
+    def get_cut_candidates(self, path_node_ids: List[str], source_id: str) -> List[MitigationCandidate]:
+        return self._client.get_cut_candidates(path_node_ids=path_node_ids, source_id=source_id)
+
+    def list_entities(self) -> List[Dict[str, Any]]:
+        return self._client.list_entities()
+
+    def apply_containment_action(self, blocked_ids: List[str]):
+        raise PermissionError(
+            "State mutation is strictly write-gated. Read-only investigative tools cannot execute containment."
+        )
+
+    def inject_bypass_edge(self, source_id: str, target_id: str, evidence_id: str = "E-STRESS-BYPASS"):
+        raise PermissionError("State mutation is strictly write-gated. Read-only tools cannot inject edges.")
+
+    def remove_bypass_edge(self, evidence_id: str = "E-STRESS-BYPASS"):
+        raise PermissionError("State mutation is strictly write-gated. Read-only tools cannot delete edges.")
+
+    def update_node_cost(self, node_id: str, new_cost: int):
+        raise PermissionError("State mutation is strictly write-gated. Read-only tools cannot update costs.")
