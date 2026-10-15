@@ -56,76 +56,13 @@ class EvidenceUnavailableError(RuntimeError):
         super().__init__(message)
 
 
-# ==============================================================================
-# Pydantic Domain & Telemetry Models (Strict: extra="forbid")
-# ==============================================================================
-
-class QueryTelemetry(BaseModel):
-    """Execution telemetry captured directly from live FalkorDB query execution."""
-    model_config = ConfigDict(extra="forbid")
-
-    query: str
-    params: Dict[str, Any]
-    latency_ms: float = Field(ge=0.0, description="Internal execution time reported by FalkorDB (ms)")
-    client_latency_ms: float = Field(ge=0.0, description="Client roundtrip execution latency (ms)")
-    nodes_created: int = Field(default=0, ge=0)
-    nodes_deleted: int = Field(default=0, ge=0)
-    relationships_created: int = Field(default=0, ge=0)
-    relationships_deleted: int = Field(default=0, ge=0)
-    properties_set: int = Field(default=0, ge=0)
-    raw_stats: List[str] = Field(default_factory=list)
-
-
-class AttackPath(BaseModel):
-    """Structured representation of an active directed attack path."""
-    model_config = ConfigDict(extra="forbid")
-
-    node_ids: List[str]
-    node_names: List[str]
-    node_kinds: List[str]
-    mechanisms: List[str]
-    evidence_ids: List[str]
-    hops: int = Field(ge=1, le=8)
-
-
-class CentralityScore(BaseModel):
-    """Betweenness centrality score for a graph entity."""
-    model_config = ConfigDict(extra="forbid")
-
-    id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]{1,64}$")
-    name: str
-    kind: str
-    score: float = Field(ge=0.0)
-
-
-class MitigationCandidate(BaseModel):
-    """Candidate entity for containment consideration with graph-computed blast radius."""
-    model_config = ConfigDict(extra="forbid")
-
-    id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]{1,64}$")
-    name: str
-    kind: str
-    criticality: str
-    cost: int = Field(ge=0, description="Operational blast-radius impact cost (>= 0)")
-    status: str
-    downstream_services: List[str] = Field(
-        default_factory=list,
-        description="Downstream services dynamically dependent on this entity"
-    )
-    downstream_count: int = Field(
-        default=0,
-        ge=0,
-        description="Number of unique downstream services affected"
-    )
-
-
-class MutationResult(BaseModel):
-    """Result of applying simulated containment or test topology mutation."""
-    model_config = ConfigDict(extra="forbid")
-
-    disabled_ids: List[str]
-    updated_node_count: int = Field(ge=0)
-    updated_edge_count: int = Field(ge=0)
+from models import (
+    QueryTelemetry,
+    AttackPath,
+    CentralityScore,
+    MitigationCandidate,
+    MutationResult,
+)
 
 
 # ==============================================================================
@@ -413,11 +350,28 @@ class FalkorGraphClient:
             self.connect()
         return self._graph
 
-    def check_connection(self) -> bool:
-        """Verify database connectivity with a live ping query."""
+    def ensure_seeded(self) -> int:
+        """Ensure the graph has entities; if empty, auto-bootstraps using seed_database."""
+        try:
+            res = self.graph.query("MATCH (n:Entity) RETURN count(n) AS cnt")
+            cnt = int(res.result_set[0][0]) if res.result_set else 0
+            if cnt == 0:
+                import seed
+                seed.seed_database(host=self.host, port=self.port, graph_name=self.graph_name)
+                res_post = self.graph.query("MATCH (n:Entity) RETURN count(n) AS cnt")
+                return int(res_post.result_set[0][0]) if res_post.result_set else 0
+            return cnt
+        except Exception:
+            return 0
+
+    def check_connection(self, auto_bootstrap: bool = True) -> bool:
+        """Verify database connectivity with a live ping query, optionally auto-bootstrapping on cold start."""
         try:
             res = self.graph.query("RETURN 1 AS ping")
-            return res.result_set is not None and len(res.result_set) == 1 and res.result_set[0][0] == 1
+            connected = res.result_set is not None and len(res.result_set) == 1 and res.result_set[0][0] == 1
+            if connected and auto_bootstrap:
+                self.ensure_seeded()
+            return connected
         except Exception:
             return False
 

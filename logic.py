@@ -24,115 +24,16 @@ from graph_client import (
     DEFAULT_PORT,
     DEFAULT_GRAPH,
 )
-from cut_set_calculator import (
+from solver import (
     CutPlan,
     compute_minimum_cost_cut,
 )
 from config import settings
-
-
-# ==============================================================================
-# Domain Models for Audit Receipts & Incident Telemetry
-# ==============================================================================
-
-class SparedBottleneck(BaseModel):
-    """Details of a high-centrality bridge entity that was preserved online."""
-    model_config = ConfigDict(extra="forbid")
-
-    node_id: str
-    node_name: str
-    kind: str
-    centrality_score: float = Field(ge=0.0)
-    blast_radius_cost: int = Field(ge=0)
-    services_preserved: List[str]
-
-
-class ExecutedQueryRecord(BaseModel):
-    """Exact parameterized Cypher query executed during containment."""
-    model_config = ConfigDict(extra="forbid")
-
-    query: str
-    params: Dict[str, Any]
-    latency_ms: float = Field(ge=0.0)
-
-
-class ContainmentAuditReceipt(BaseModel):
-    """
-    Cryptographic containment receipt proving counterfactual optimality,
-    spared bottlenecks, live Cypher latencies, and pre/post SHA-256 graph integrity hashes.
-    """
-    model_config = ConfigDict(extra="forbid")
-
-    incident_id: str
-    timestamp_utc: str
-    source_id: str
-    target_id: str
-    optimal_cut_ids: List[str]
-    optimal_cut_names: List[str]
-    total_blast_radius_cost: int = Field(ge=0)
-    spared_bottlenecks: List[SparedBottleneck]
-    executed_queries: List[ExecutedQueryRecord]
-    total_execution_latency_ms: float = Field(ge=0.0)
-    pre_mitigation_graph_hash: str
-    post_mitigation_graph_hash: str
-    verified_remaining_paths: int = 0
-    verification_status: str = "CONTAINED_AND_VERIFIED"
-    verification_scope: str = "eight_hop_bounded_reachability"
-
-    def to_json(self, indent: int = 2) -> str:
-        """Serialize audit receipt to formatted JSON."""
-        return self.model_dump_json(indent=indent)
-
-    def to_markdown(self) -> str:
-        """Render cryptographic audit receipt as GitHub Flavored Markdown."""
-        lines = [
-            "# TEZCATL Containment Audit Receipt",
-            f"- **Incident ID:** `{self.incident_id}`",
-            f"- **Timestamp (UTC):** `{self.timestamp_utc}`",
-            f"- **Compromised Ingress Source:** `{self.source_id}`",
-            f"- **Protected Crown-Jewel Target:** `{self.target_id}`",
-            f"- **Containment Status:** `<span style='color:#3fb950;'>{self.verification_status}</span>` (`{self.verified_remaining_paths}` remaining paths)",
-            f"- **Total Operational Blast Radius Cost:** `{self.total_blast_radius_cost}`",
-            "",
-            "## 1. Optimal Containment Plan Applied",
-        ]
-        for cid, cname in zip(self.optimal_cut_ids, self.optimal_cut_names):
-            lines.append(f"- **Severed Entity:** `{cid}` ({cname})")
-
-        lines.extend([
-            "",
-            "## 2. High-Centrality Structural Bottlenecks Spared",
-        ])
-        if self.spared_bottlenecks:
-            for b in self.spared_bottlenecks:
-                svcs = ", ".join([f"`{s}`" for s in b.services_preserved]) if b.services_preserved else "None"
-                lines.append(
-                    f"- **`{b.node_name}`** (`{b.node_id}`): "
-                    f"Betweenness Centrality: `{b.centrality_score:.4f}` | "
-                    f"Disruption Spared: `{b.blast_radius_cost}` | "
-                    f"Downstream Services Preserved: {svcs}"
-                )
-        else:
-            lines.append("- No intermediate bridge entities required preservation.")
-
-        lines.extend([
-            "",
-            "## 3. Cryptographic Graph State Integrity Hashes (SHA-256)",
-            f"- **Pre-Mitigation Graph State Hash:** `{self.pre_mitigation_graph_hash}`",
-            f"- **Post-Mitigation Graph State Hash:** `{self.post_mitigation_graph_hash}`",
-            "",
-            f"## 4. FalkorDB Query Execution Telemetry (Roundtrip: `{self.total_execution_latency_ms:.2f} ms`)",
-            "| Cypher Query | Parameters | FalkorDB Latency |",
-            "|---|---|---|",
-        ])
-        for q in self.executed_queries:
-            q_clean = q.query.replace("\n", " ").strip()
-            if len(q_clean) > 55:
-                q_clean = q_clean[:52] + "..."
-            params_str = json.dumps(q.params)
-            lines.append(f"| `{q_clean}` | `{params_str}` | `{q.latency_ms:.4f} ms` |")
-
-        return "\n".join(lines)
+from models import (
+    SparedBottleneck,
+    ExecutedQueryRecord,
+    ContainmentAuditReceipt,
+)
 
 
 class IncidentAnalysisResult(BaseModel):
