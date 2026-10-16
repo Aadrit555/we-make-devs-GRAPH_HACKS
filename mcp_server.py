@@ -1,10 +1,6 @@
 """
-TEZCATL Sovereign Graph Engine — Authored by Aadrit555
-mcp_server.py — First-Party JSON-RPC 2.0 Model Context Protocol (MCP) Tool Server.
-
-Exposes native FalkorDB graph algorithms, multi-hop traversals, blast-radius calculus,
-and shadow-mirror sandboxing as standardized MCP tools.
-Zero external APIs, zero third-party agent framework wrappers.
+TEZCATL — Graph-Native Security Containment Agent (FalkorDB)
+Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
 
 import sys
@@ -23,7 +19,7 @@ from models import (
 # Standard MCP Tool Definitions
 MCP_TOOLS: List[McpToolDefinition] = [
     McpToolDefinition(
-        name="scry_attack_paths",
+        name="find_attack_paths",
         description="Traverse active directed ATTACK_STEP relationships (*1..8) to identify lateral breach trajectories.",
         inputSchema={
             "type": "object",
@@ -110,7 +106,7 @@ class McpServer:
 
     def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
         """Dispatch tool execution directly to FalkorDB client."""
-        if tool_name == "scry_attack_paths":
+        if tool_name == "find_attack_paths":
             source_id = arguments.get("source_id", settings.tezcatl_source_id)
             target_id = arguments.get("target_id", settings.tezcatl_target_id)
             max_hops = int(arguments.get("max_hops", 8))
@@ -140,7 +136,6 @@ class McpServer:
                 max_hops=max_hops,
                 mirror_graph_name=mirror_name,
             )
-            # Serialize model instances in result
             return {
                 "mirror_graph_name": sim["mirror_graph_name"],
                 "blocked_ids": sim["blocked_ids"],
@@ -165,7 +160,6 @@ class McpServer:
 
     def handle_request(self, raw_request: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
         """Process a JSON-RPC 2.0 request and return a JSON-RPC 2.0 response dictionary."""
-        # 1. Parse JSON
         if isinstance(raw_request, str):
             try:
                 payload = json.loads(raw_request)
@@ -193,7 +187,6 @@ class McpServer:
                 error=JsonRpcError(code=-32600, message="Invalid Request: method missing or not a string"),
             ).model_dump()
 
-        # 2. Dispatch method
         try:
             if method in ("tools/list", "mcp.list_tools"):
                 tools = self.list_tools()
@@ -211,7 +204,6 @@ class McpServer:
                 return JsonRpcResponse(id=req_id, result={"content": tool_result}).model_dump()
 
             elif any(tool.name == method for tool in MCP_TOOLS):
-                # Direct method invocation
                 tool_result = self.call_tool(method, params)
                 return JsonRpcResponse(id=req_id, result=tool_result).model_dump()
 

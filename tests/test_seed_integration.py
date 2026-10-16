@@ -1,5 +1,6 @@
 """
-tests/test_seed_integration.py - Integration tests for seed.py against live FalkorDB.
+TEZCATL — Graph-Native Security Containment Agent (FalkorDB)
+Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
 
 import os
@@ -8,9 +9,6 @@ from config import settings
 from falkordb import FalkorDB
 import seed
 
-FALKORDB_HOST = os.getenv("FALKORDB_HOST", "127.0.0.1")
-FALKORDB_PORT = int(os.getenv("FALKORDB_PORT", "6379"))
-GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "cutline_demo")
 FALKORDB_HOST = settings.falkordb_host
 FALKORDB_PORT = settings.falkordb_port
 GRAPH_NAME = settings.falkordb_graph

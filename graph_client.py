@@ -1,10 +1,6 @@
 """
-graph_client.py — Hardened FalkorDB graph client for TEZCATL.
-
-Owns parameterized OpenCypher queries, Pydantic domain models with strict validation,
-query telemetry instrumentation, blast radius calculus, multi-graph mirror sandbox,
-and read/write interface segregation.
-No UI or LLM logic belongs in this module.
+TEZCATL — Graph-Native Security Containment Agent (FalkorDB)
+Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
 
 import re
@@ -120,8 +116,8 @@ RETURN
 ORDER BY score DESC
 """
 
-# Query 3A: Counterfactual verification / zero-path check (crown jewel default)
-QUERY_COUNTERFACTUAL_PATHS_CROWN_JEWEL = """
+# Query 3A: Shadow-graph sandbox verification / zero-path check (crown jewel default)
+QUERY_SANDBOX_PATHS_CROWN_JEWEL = """
 MATCH
     (src:Entity {id: $source_id}),
     (target:Entity {criticality: 'crown_jewel'})
@@ -133,8 +129,8 @@ WHERE ALL(r IN relationships(p) WHERE r.active = true)
 RETURN count(p) AS remaining_path_count
 """
 
-# Query 3B: Counterfactual verification / zero-path check (explicit target)
-QUERY_COUNTERFACTUAL_PATHS_TARGET = """
+# Query 3B: Shadow-graph sandbox verification / zero-path check (explicit target)
+QUERY_SANDBOX_PATHS_TARGET = """
 MATCH
     (src:Entity {id: $source_id}),
     (target:Entity {id: $target_id})
@@ -179,7 +175,7 @@ SET r.active = false
 RETURN count(r) AS updated_edge_count
 """
 
-# Query 6: Blast Radius Calculus (dynamic reverse multi-hop dependency traversal)
+# Query 6: Blast Radius Impact Analysis (dynamic reverse multi-hop dependency traversal)
 QUERY_COMPUTE_BLAST_RADIUS_CANDIDATES = """
 MATCH (s:Service)-[:DEPENDS_ON*1..4]->(e:Entity)
 WHERE e.id IN $candidate_ids
@@ -485,7 +481,7 @@ class FalkorGraphClient:
         max_hops: int = 8
     ) -> int:
         """
-        Query 3: Counterfactual verification / zero-path check.
+        Query 3: Shadow-graph sandbox verification / zero-path check.
         Counts how many directed active paths remain from source_id to target/crown jewel
         if severed_ids were excluded.
         """
@@ -498,14 +494,14 @@ class FalkorGraphClient:
         clean_severed = [validate_node_id(sid) for sid in (severed_ids or [])]
 
         if target_id:
-            query = QUERY_COUNTERFACTUAL_PATHS_TARGET
+            query = QUERY_SANDBOX_PATHS_TARGET
             params = {
                 "source_id": source_id,
                 "target_id": target_id,
                 "severed_ids": clean_severed
             }
         else:
-            query = QUERY_COUNTERFACTUAL_PATHS_CROWN_JEWEL
+            query = QUERY_SANDBOX_PATHS_CROWN_JEWEL
             params = {
                 "source_id": source_id,
                 "severed_ids": clean_severed
@@ -514,7 +510,7 @@ class FalkorGraphClient:
         res = self._execute_query(query, params, read_only=True)
 
         if not res.result_set or len(res.result_set) == 0:
-            raise EvidenceUnavailableError("Counterfactual query returned an empty result set.")
+            raise EvidenceUnavailableError("Sandbox query returned an empty result set.")
 
         return int(res.result_set[0][0])
 
@@ -714,7 +710,7 @@ class FalkorGraphClient:
     ) -> Dict[str, Any]:
         """
         Executes candidate containment inside the isolated FalkorDB 'tezcatl_mirror' graph.
-        Verifies 0 remaining paths and calculates counterfactual betweenness centrality
+        Verifies 0 remaining paths and calculates sandbox betweenness centrality
         without mutating the production graph.
         """
         start_time = time.perf_counter()
@@ -802,7 +798,7 @@ class FalkorGraphClient:
         evidence_id: str = "E-STRESS-BYPASS"
     ) -> MutationResult:
         """
-        Stress-testing control: injects an active attack edge to test counterfactual recalculations.
+        Stress-testing control: injects an active attack edge to test shadow recalculations.
         """
         validate_node_id(source_id)
         validate_node_id(target_id)

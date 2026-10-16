@@ -1,10 +1,6 @@
 """
-TEZCATL Sovereign Graph Engine — Authored by Aadrit555
-solver.py — Pure, deterministic minimum-cost vertex-cut engine for TEZCATL.
-
-Combinatorial hitting-set algorithm with graph-computed operational blast radius
-costs, operator protection exclusions, and deterministic tie-breaking.
-Zero external APIs, zero third-party agent dependencies.
+TEZCATL — Graph-Native Security Containment Agent (FalkorDB)
+Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
 
 from typing import List, Set, Dict, Optional, Tuple

@@ -1,6 +1,6 @@
 """
-tests/test_graph_engine_integration.py — Live integration tests for FalkorGraphClient.
-Connects to live FalkorDB instance and tests all Phase 2 queries and assertions.
+TEZCATL — Graph-Native Security Containment Agent (FalkorDB)
+Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
 
 import pytest
@@ -9,9 +9,6 @@ from config import settings
 from graph_client import FalkorGraphClient, AttackPath, CentralityScore, MitigationCandidate
 import seed
 
-FALKORDB_HOST = os.getenv("FALKORDB_HOST", "127.0.0.1")
-FALKORDB_PORT = int(os.getenv("FALKORDB_PORT", "6379"))
-GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "cutline_demo")
 FALKORDB_HOST = settings.falkordb_host
 FALKORDB_PORT = settings.falkordb_port
 GRAPH_NAME = settings.falkordb_graph
@@ -116,9 +113,9 @@ def test_candidate_retrieval_and_costs(client):
     assert cand_dict["release_controller"] == 10
 
 
-def test_counterfactual_verification(client):
+def test_sandbox_verification(client):
     """
-    Counterfactual zero-path verification:
+    Shadow-graph zero-path verification:
     - Excluding {deploy_token, artifact_token} returns 0 remaining paths.
     - Excluding only {deploy_token} leaves the artifact path (1 remaining path).
     - Excluding only {artifact_token} leaves the two deploy paths (2 remaining paths).

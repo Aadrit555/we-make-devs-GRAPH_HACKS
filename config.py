@@ -1,8 +1,6 @@
 """
-config.py — Typed application configuration for TEZCATL.
-
-Enforces zero-hardcoding environment configuration with strict validation.
-Zero external API keys: 100% self-contained sovereign execution.
+TEZCATL — Graph-Native Security Containment Agent (FalkorDB)
+Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
 
 import os
@@ -24,17 +22,16 @@ class Settings(BaseModel):
     tezcatl_target_id: str = Field(default_factory=lambda: os.getenv("TEZCATL_TARGET_ID", "signing_key"))
     tezcatl_max_hops: int = Field(default_factory=lambda: int(os.getenv("TEZCATL_MAX_HOPS", "8")))
 
-    # Backward compatibility properties
     @property
-    def cutline_source_id(self) -> str:
+    def default_source_id(self) -> str:
         return self.tezcatl_source_id
 
     @property
-    def cutline_target_id(self) -> str:
+    def default_target_id(self) -> str:
         return self.tezcatl_target_id
 
     @property
-    def cutline_max_hops(self) -> int:
+    def default_max_hops(self) -> int:
         return self.tezcatl_max_hops
 
 

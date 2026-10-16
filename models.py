@@ -1,7 +1,6 @@
 """
-TEZCATL Sovereign Graph Engine — Authored by Aadrit555
-models.py — Strongly-typed Pydantic schemas for domain entities, graph telemetry,
-pipeline stages, and cryptographic receipts.
+TEZCATL — Graph-Native Security Containment Agent (FalkorDB)
+Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
 
 import json
@@ -141,7 +140,7 @@ class ExecutedQueryRecord(BaseModel):
 
 class ContainmentAuditReceipt(BaseModel):
     """
-    Cryptographic containment receipt proving counterfactual containment,
+    Cryptographic containment receipt proving shadow-graph sandbox containment,
     spared bottlenecks, live Cypher execution latencies, and pre/post SHA-256 state hashes.
     """
     model_config = ConfigDict(extra="forbid")
@@ -217,7 +216,7 @@ class ContainmentAuditReceipt(BaseModel):
 
 
 class PipelineStageResult(BaseModel):
-    """Standardized result emitted by each stage in the Tezcatl sovereign pipeline."""
+    """Standardized result emitted by each stage in the Tezcatl execution pipeline."""
     model_config = ConfigDict(extra="forbid")
 
     stage_name: str
@@ -279,7 +278,7 @@ class IncidentAnalysisResult(BaseModel):
     centrality_scores: List[CentralityScore]
     eligible_candidates: List[MitigationCandidate]
     recommended_plan: Optional[CutPlan] = None
-    counterfactual_remaining_paths: int = Field(ge=0)
+    sandbox_remaining_paths: int = Field(ge=0)
     graph_is_contained: bool
     status_message: str
     telemetry: Optional[QueryTelemetry] = None

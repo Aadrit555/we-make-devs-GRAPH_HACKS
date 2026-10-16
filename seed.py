@@ -1,9 +1,6 @@
 """
-seed.py - Seed the FalkorDB graph for TEZCATL.
-
-Resets and seeds the designated FalkorDB graph ('prod_graph').
-Sets up both the attack topology (ATTACK_STEP) and downstream operational dependencies (DEPENDS_ON)
-with revenue_impact_scores for dynamic blast-radius calculation.
+TEZCATL — Graph-Native Security Containment Agent (FalkorDB)
+Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
 
 import sys
@@ -47,7 +44,7 @@ INFRA_NODES = [
     {"id": "runner_oidc_binding", "name": "Runner OIDC Trust Binding", "kind": "trust_binding", "criticality": "high", "cost": 6, "revenue_impact_score": 0, "status": "active"},
 ]
 
-# Downstream Business Services for Dynamic Blast-Radius Calculus
+# Downstream Business Services for Dynamic Service Impact Analysis
 DOWNSTREAM_SERVICES = [
     {"id": "checkout_api", "name": "Checkout API", "kind": "service", "criticality": "critical", "cost": 10, "revenue_impact_score": 5, "status": "active"},
     {"id": "billing_worker", "name": "Billing Worker", "kind": "service", "criticality": "high", "cost": 8, "revenue_impact_score": 3, "status": "active"},
@@ -172,13 +169,6 @@ def seed_database(host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_na
 
     seed_single_graph(target_graph, graph_name)
 
-    # If target is prod_graph, also seed cutline_demo for backwards compatibility
-    if graph_name != "cutline_demo":
-        try:
-            demo_graph = db.select_graph("cutline_demo")
-            seed_single_graph(demo_graph, "cutline_demo")
-        except Exception:
-            pass
 
     # Verify counts on target graph
     node_res = target_graph.query("MATCH (n:Entity) RETURN count(n) AS cnt")

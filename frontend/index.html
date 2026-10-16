@@ -39,7 +39,8 @@
       box-sizing: border-box;
     }
 
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       width: 100%;
@@ -63,7 +64,7 @@
     }
 
     /* ============================================================
-       100% MINIMAL DRIFTBAR MEADOW LANDING VIEWPORT
+       100% MINIMAL MEADOW LANDING VIEWPORT
        ============================================================ */
     .footer {
       --u: min(100vw / 1440, 100vh / 672);
@@ -766,7 +767,7 @@
       font-family: var(--mono);
     }
 
-    /* Tab 3: Smoking Mirror Sandbox & Calculus */
+    /* Tab 3: Shadow Mirror Sandbox & Verification */
     .sandbox-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -887,9 +888,17 @@
       border-radius: 50%;
     }
 
-    .mac-dot.red { background: #ef4444; }
-    .mac-dot.yellow { background: #f59e0b; }
-    .mac-dot.green { background: #10b981; }
+    .mac-dot.red {
+      background: #ef4444;
+    }
+
+    .mac-dot.yellow {
+      background: #f59e0b;
+    }
+
+    .mac-dot.green {
+      background: #10b981;
+    }
 
     .terminal-body {
       padding: 14px;
@@ -947,7 +956,7 @@
 
 <body>
 
-  <!-- 100% MINIMAL DRIFTBAR MEADOW LANDING PAGE (DEFAULT VIEWPORT) -->
+  <!-- 100% MINIMAL MEADOW LANDING PAGE (DEFAULT VIEWPORT) -->
   <main class="footer">
     <div class="footer__stage" aria-hidden="true">
       <video class="footer__video"
@@ -961,20 +970,20 @@
 
     <div class="footer__content">
       <div class="brand">
-        <div class="brand__logo" onclick="openFeatureSheet('tab-topo')" role="button" tabindex="0" aria-label="TEZCATL home">
+        <div class="brand__logo" onclick="openFeatureSheet('tab-topo')" role="button" tabindex="0"
+          aria-label="TEZCATL home">
           <span class="brand__mark" aria-hidden="true"></span>
           TEZCATL
         </div>
-        <h2 class="brand__title">The obsidian mirror for cloud containment</h2>
-        <p class="brand__text">TEZCATL traces multi-hop attack paths, calculates reverse service blast radius, and
-          verifies minimum-cost containment cuts inside an isolated FalkorDB shadow mirror.</p>
+        <h2 class="brand__title">Graph-native breach containment for cloud infrastructure</h2>
+        <p class="brand__text">TEZCATL traces multi-hop lateral movement in FalkorDB, calculates downstream service impact, and tests minimum-cost node isolation in a shadow graph before updating production.</p>
         <button class="brand__cta" onclick="openFeatureSheet('tab-topo')">
-          Launch Scrying Console
+          Open Graph Console
         </button>
-        <p class="brand__copy">© 2026 TEZCATL Sovereign Graph Engine - WeMakeDevs.</p>
+        <p class="brand__copy">© 2026 TEZCATL · Architected by Aadrit555.</p>
         <p class="brand__by">
-          Built by
-          <span class="brand__author">
+          Engineered by
+          <a class="brand__author" href="https://github.com/Aadrit555" target="_blank" rel="noopener">
             <span class="brand__avatar" aria-hidden="true">
               <svg viewBox="0 0 24 24">
                 <rect width="24" height="24" fill="#e6e6e3" />
@@ -983,7 +992,7 @@
               </svg>
             </span>
             Aadrit555
-          </span>
+          </a>
         </p>
 
         <ul class="brand__status" aria-label="TEZCATL status">
@@ -996,10 +1005,10 @@
       <nav class="col col--menu" aria-label="Menu">
         <h3 class="col__title">Architecture</h3>
         <ul class="col__list">
-          <li><a onclick="openFeatureSheet('tab-topo')">Multi-Hop Scryer</a></li>
+          <li><a onclick="openFeatureSheet('tab-topo')">Attack Path Discovery</a></li>
           <li><a onclick="openFeatureSheet('tab-matrix')">Betweenness Centrality</a></li>
-          <li><a onclick="openFeatureSheet('tab-matrix')">Blast-Radius Calculus</a></li>
-          <li><a onclick="openFeatureSheet('tab-sandbox')">Smoking Mirror Sandbox</a></li>
+          <li><a onclick="openFeatureSheet('tab-matrix')">Service Impact Analysis</a></li>
+          <li><a onclick="openFeatureSheet('tab-sandbox')">Shadow Graph Sandbox</a></li>
           <li><a onclick="openFeatureSheet('tab-sandbox')">SHA-256 Audit Receipt</a></li>
         </ul>
       </nav>
@@ -1008,7 +1017,7 @@
         <h3 class="col__title">FalkorDB Engine</h3>
         <ul class="col__list">
           <li><a onclick="openFeatureSheet('tab-topo')">prod_graph Topology</a></li>
-          <li><a onclick="openFeatureSheet('tab-sandbox')">tezcatl_mirror Clone</a></li>
+          <li><a onclick="openFeatureSheet('tab-sandbox')">tezcatl_mirror Shadow Graph</a></li>
           <li><a onclick="openFeatureSheet('tab-cypher')">Parameterized OpenCypher</a></li>
           <li><a onclick="openFeatureSheet('tab-sandbox')">Zero-Path Verification</a></li>
           <li><a onclick="openFeatureSheet('tab-sandbox')">Combinatorial Cut Solver</a></li>
@@ -1039,14 +1048,14 @@
       <header class="sheet-header">
         <div class="sheet-header-left">
           <div class="sheet-brand-pill">TEZCATL // 01</div>
-          <span class="sheet-title">Sovereign Graph Containment Deck</span>
+          <span class="sheet-title">Graph Containment Deck</span>
         </div>
 
         <nav class="sheet-tabs" role="tablist">
-          <button class="tab-btn active" data-tab="tab-topo" onclick="switchTab('tab-topo')">01 Multi-Hop Topology</button>
-          <button class="tab-btn" data-tab="tab-matrix" onclick="switchTab('tab-matrix')">02 Centrality & Blast</button>
-          <button class="tab-btn" data-tab="tab-sandbox" onclick="switchTab('tab-sandbox')">03 Smoking Mirror</button>
-          <button class="tab-btn" data-tab="tab-cypher" onclick="switchTab('tab-cypher')">04 Cypher Telemetry</button>
+          <button class="tab-btn active" data-tab="tab-topo" onclick="switchTab('tab-topo')">01 Attack Paths (*1..8)</button>
+          <button class="tab-btn" data-tab="tab-matrix" onclick="switchTab('tab-matrix')">02 Centrality & Service Impact</button>
+          <button class="tab-btn" data-tab="tab-sandbox" onclick="switchTab('tab-sandbox')">03 Shadow Graph (tezcatl_mirror)</button>
+          <button class="tab-btn" data-tab="tab-cypher" onclick="switchTab('tab-cypher')">04 Cypher Query Log</button>
         </nav>
 
         <button class="btn-sheet-close" onclick="closeFeatureSheet()" title="Close feature console (Esc)">
@@ -1071,9 +1080,10 @@
         </div>
 
         <div class="controls-group-right">
-          <button class="btn-action btn-action-warning" id="btnBypass" onclick="injectBypass()">Inject Stealth Bypass (EV-999)</button>
+          <button class="btn-action btn-action-warning" id="btnBypass" onclick="injectBypass()">Inject Stealth Bypass
+            (EV-999)</button>
           <button class="btn-action btn-action-ghost" onclick="resetTopology()">Reset Baseline</button>
-          <button class="btn-action btn-action-primary" id="btnCut" onclick="authorizeCut()">Authorize Surgical Cut</button>
+          <button class="btn-action btn-action-primary" id="btnCut" onclick="authorizeCut()">Apply Minimum Cut</button>
         </div>
       </div>
 
@@ -1134,8 +1144,8 @@
                     <text class="edge-label" x="325" y="160">SESSION_HIJACK</text>
 
                     <!-- artifact_token -> artifact_registry -->
-                    <path id="e-artifact-registry" class="edge-line edge-active" d="M 285 240 C 320 240, 330 250, 365 250"
-                      marker-end="url(#arrow)" />
+                    <path id="e-artifact-registry" class="edge-line edge-active"
+                      d="M 285 240 C 320 240, 330 250, 365 250" marker-end="url(#arrow)" />
                     <text class="edge-label" x="325" y="240">PUBLISH_AUTH</text>
 
                     <!-- production_deploy_role -> release_controller -->
@@ -1151,8 +1161,8 @@
                       d="M 445 250 C 475 250, 485 160, 515 160" marker-end="url(#arrow)" />
 
                     <!-- release_controller -> signer_role -->
-                    <path id="e-controller-signer" class="edge-line edge-active" d="M 595 160 C 610 160, 615 200, 630 200"
-                      marker-end="url(#arrow)" />
+                    <path id="e-controller-signer" class="edge-line edge-active"
+                      d="M 595 160 C 610 160, 615 200, 630 200" marker-end="url(#arrow)" />
                     <text class="edge-label" x="612" y="176">DISPATCH</text>
 
                     <!-- signer_role -> signing_key -->
@@ -1171,59 +1181,68 @@
                   <g id="nodesGroup">
                     <!-- Tier A: Source Node -->
                     <g id="node-ci_runner" transform="translate(20, 108)">
-                      <rect class="node-rect" width="75" height="44" fill="#fee2e2" stroke="#be123c" stroke-width="1.5" />
+                      <rect class="node-rect" width="75" height="44" fill="#fee2e2" stroke="#be123c"
+                        stroke-width="1.5" />
                       <text class="node-text" x="37" y="20" text-anchor="middle">ci-runner-07</text>
                       <text class="node-subtext" x="37" y="34" text-anchor="middle">BREACHED</text>
                     </g>
 
                     <!-- Tier B: Credential Nodes (Cut Candidates) -->
                     <g id="node-deploy_token" transform="translate(205, 108)">
-                      <rect class="node-rect" width="80" height="44" fill="#e0e7ff" stroke="#4f46e5" stroke-width="1.3" />
+                      <rect class="node-rect" width="80" height="44" fill="#e0e7ff" stroke="#4f46e5"
+                        stroke-width="1.3" />
                       <text class="node-text" x="40" y="20" text-anchor="middle">deploy_token</text>
                       <text class="node-subtext" x="40" y="34" text-anchor="middle">CUT (Cost: 2)</text>
                     </g>
 
                     <g id="node-artifact_token" transform="translate(205, 218)">
-                      <rect class="node-rect" width="80" height="44" fill="#e0e7ff" stroke="#4f46e5" stroke-width="1.3" />
+                      <rect class="node-rect" width="80" height="44" fill="#e0e7ff" stroke="#4f46e5"
+                        stroke-width="1.3" />
                       <text class="node-text" x="40" y="20" text-anchor="middle">artifact_token</text>
                       <text class="node-subtext" x="40" y="34" text-anchor="middle">CUT (Cost: 3)</text>
                     </g>
 
                     <!-- Tier C: Workloads & Roles -->
                     <g id="node-production_deploy_role" transform="translate(365, 68)">
-                      <rect class="node-rect" width="80" height="44" fill="#f4f4f2" stroke="rgba(12,12,12,0.18)" stroke-width="1" />
+                      <rect class="node-rect" width="80" height="44" fill="#f4f4f2" stroke="rgba(12,12,12,0.18)"
+                        stroke-width="1" />
                       <text class="node-text" x="40" y="20" text-anchor="middle">deploy_role</text>
                       <text class="node-subtext" x="40" y="34" text-anchor="middle">IAM Role</text>
                     </g>
 
                     <g id="node-legacy_release_session" transform="translate(365, 148)">
-                      <rect class="node-rect" width="80" height="44" fill="#f4f4f2" stroke="rgba(12,12,12,0.18)" stroke-width="1" />
+                      <rect class="node-rect" width="80" height="44" fill="#f4f4f2" stroke="rgba(12,12,12,0.18)"
+                        stroke-width="1" />
                       <text class="node-text" x="40" y="20" text-anchor="middle">legacy_session</text>
                       <text class="node-subtext" x="40" y="34" text-anchor="middle">Session (4)</text>
                     </g>
 
                     <g id="node-artifact_registry" transform="translate(365, 228)">
-                      <rect class="node-rect" width="80" height="44" fill="#f4f4f2" stroke="rgba(12,12,12,0.18)" stroke-width="1" />
+                      <rect class="node-rect" width="80" height="44" fill="#f4f4f2" stroke="rgba(12,12,12,0.18)"
+                        stroke-width="1" />
                       <text class="node-text" x="40" y="20" text-anchor="middle">registry_core</text>
                       <text class="node-subtext" x="40" y="34" text-anchor="middle">Registry (7)</text>
                     </g>
 
                     <!-- Tier D: Critical Bottleneck & Signer Role -->
                     <g id="node-release_controller" transform="translate(515, 138)">
-                      <rect class="node-rect" width="80" height="44" fill="#fef3c7" stroke="#b45309" stroke-width="1.3" />
+                      <rect class="node-rect" width="80" height="44" fill="#fef3c7" stroke="#b45309"
+                        stroke-width="1.3" />
                       <text class="node-text" x="40" y="20" text-anchor="middle">controller</text>
                       <text class="node-subtext" x="40" y="34" text-anchor="middle">BOTTLENECK</text>
                     </g>
 
                     <g id="node-signer_role" transform="translate(620, 178)">
-                      <rect class="node-rect" width="80" height="44" fill="#f4f4f2" stroke="rgba(12,12,12,0.18)" stroke-width="1" />
+                      <rect class="node-rect" width="80" height="44" fill="#f4f4f2" stroke="rgba(12,12,12,0.18)"
+                        stroke-width="1" />
                       <text class="node-text" x="40" y="20" text-anchor="middle">signer_role</text>
                       <text class="node-subtext" x="40" y="34" text-anchor="middle">IAM Role (8)</text>
                     </g>
 
                     <!-- Tier E: Crown Jewel Target -->
                     <g id="node-signing_key" transform="translate(710, 178)">
-                      <rect class="node-rect" width="46" height="44" fill="#fee2e2" stroke="#be123c" stroke-width="1.6" />
+                      <rect class="node-rect" width="46" height="44" fill="#fee2e2" stroke="#be123c"
+                        stroke-width="1.6" />
                       <text class="node-text" x="23" y="21" text-anchor="middle">KEY</text>
                       <text class="node-subtext" x="23" y="33" text-anchor="middle">CROWN</text>
                     </g>
@@ -1360,13 +1379,13 @@
                 <div class="metric-card" style="border-color:rgba(21, 128, 61, 0.3);">
                   <div class="metric-label">tezcatl_mirror</div>
                   <div class="metric-value" id="mirrorPathsVal" style="color:var(--success)">0 Routes Remain</div>
-                  <div class="metric-sub">Counterfactual Verified</div>
+                  <div class="metric-sub">Shadow-Graph Sandbox Verified</div>
                 </div>
               </div>
 
               <div class="proof-card">
                 <div class="proof-title">
-                  <span>MATHEMATICAL CUT-SET CALCULUS</span>
+                  <span>MATHEMATICAL CUT-SET VERIFICATION</span>
                   <span id="proofSavingsBadge" style="color:var(--success);">64% AVAILABILITY SAVED</span>
                 </div>
                 <div class="proof-row">
@@ -1391,7 +1410,7 @@
               <div class="card-header">
                 <div class="card-title">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                   </svg>
                   Containment Audit Receipt
                 </div>
@@ -1399,7 +1418,9 @@
               </div>
 
               <p style="font-size:12px; color:var(--body); margin:0 0 14px 0; line-height:1.45;">
-                Every surgical containment cut is tested inside the isolated <code>tezcatl_mirror</code> graph first. Only when zero residual attack paths (*1..8) are mathematically proven does the engine authorize production severance, producing an immutable SHA-256 state audit receipt.
+                Every surgical containment cut is tested inside the isolated <code>tezcatl_mirror</code> graph first.
+                Only when zero residual attack paths (*1..8) are mathematically proven does the engine authorize
+                production severance, producing an immutable SHA-256 state audit receipt.
               </p>
 
               <div class="receipt-box active" id="receiptBox">
@@ -1407,7 +1428,8 @@
                   <span>CONTAINMENT RECEIPT SEALED</span>
                   <span id="receiptTimestamp">READY FOR AUTHORIZATION</span>
                 </div>
-                <div id="receiptDetailText">Verified reachability reduction: 3 ➔ 0 reachable paths. Target cuts: deploy_token, artifact_token.</div>
+                <div id="receiptDetailText">Verified reachability reduction: 3 ➔ 0 reachable paths. Target cuts:
+                  deploy_token, artifact_token.</div>
                 <div id="receiptHash" style="font-size:10px; word-break:break-all; color:var(--body); margin-top:6px;">
                   SHA-256: 7d1f95c479e01fb33c2a8f89e3b0c44298fc1c149afbf4c8996fb92427ae41e4
                 </div>
@@ -1435,28 +1457,32 @@
                     <span class="graph-badge-prod">[prod_graph]</span>
                     <span class="query-lat">(0.42 ms)</span>
                   </div>
-                  <div class="query-cypher">MATCH p = (src:Entity {id: $source_id})-[:ATTACK_STEP*1..8]->(target:Entity {criticality: 'crown_jewel'}) RETURN p</div>
+                  <div class="query-cypher">MATCH p = (src:Entity {id: $source_id})-[:ATTACK_STEP*1..8]->(target:Entity
+                    {criticality: 'crown_jewel'}) RETURN p</div>
                 </div>
                 <div class="query-item">
                   <div class="query-header">
                     <span class="graph-badge-prod">[prod_graph]</span>
                     <span class="query-lat">(1.10 ms)</span>
                   </div>
-                  <div class="query-cypher">CALL algo.betweenness({nodeLabels: ['Entity'], relationshipTypes: ['ATTACK_STEP']}) YIELD node, score</div>
+                  <div class="query-cypher">CALL algo.betweenness({nodeLabels: ['Entity'], relationshipTypes:
+                    ['ATTACK_STEP']}) YIELD node, score</div>
                 </div>
                 <div class="query-item">
                   <div class="query-header">
                     <span class="graph-badge-prod">[prod_graph]</span>
                     <span class="query-lat">(0.65 ms)</span>
                   </div>
-                  <div class="query-cypher">MATCH (s:Service)-[:DEPENDS_ON*1..4]->(e:Entity) WHERE e.id IN $candidate_ids RETURN e.id, sum(s.revenue_impact_score)</div>
+                  <div class="query-cypher">MATCH (s:Service)-[:DEPENDS_ON*1..4]->(e:Entity) WHERE e.id IN
+                    $candidate_ids RETURN e.id, sum(s.revenue_impact_score)</div>
                 </div>
                 <div class="query-item">
                   <div class="query-header">
                     <span class="graph-badge-mirror">[tezcatl_mirror]</span>
                     <span class="query-lat">(1.80 ms)</span>
                   </div>
-                  <div class="query-cypher">OPTIONAL MATCH p = (src)-[:ATTACK_STEP*1..8]->(target) WHERE NONE(n IN nodes(p) WHERE n.id IN $severed_ids) RETURN count(p)</div>
+                  <div class="query-cypher">OPTIONAL MATCH p = (src)-[:ATTACK_STEP*1..8]->(target) WHERE NONE(n IN
+                    nodes(p) WHERE n.id IN $severed_ids) RETURN count(p)</div>
                 </div>
               </div>
             </div>
@@ -1563,7 +1589,7 @@
         }
       },
       telemetry: [
-        { graph: "prod_graph", execution_ms: 0.42, cypher: "MATCH p = (src:Entity {id: 'ci_runner'})-[:ATTACK_STEP*1..8]->(target:Entity {criticality: 'crown_jewel'}) RETURN p" },
+        { graph: "prod_graph", execution_ms: 0.42, cypher: "MATCH p = (src:Entity {id: 'ci_runner'})-[:ATTACK_STEP*1..8]->(target:Entity {critilitwn_jewel'}) RETURN p" },
         { graph: "prod_graph", execution_ms: 1.10, cypher: "CALL algo.betweenness({nodeLabels: ['Entity'], relationshipTypes: ['ATTACK_STEP']}) YIELD node, score" },
         { graph: "prod_graph", execution_ms: 0.65, cypher: "MATCH (s:Service)-[:DEPENDS_ON*1..4]->(e:Entity) WHERE e.id IN $candidate_ids RETURN e.id, sum(s.revenue_impact_score)" },
         { graph: "tezcatl_mirror", execution_ms: 1.80, cypher: "OPTIONAL MATCH p = (src)-[:ATTACK_STEP*1..8]->(target) WHERE NONE(n IN nodes(p) WHERE n.id IN $severed_ids) RETURN count(p)" }

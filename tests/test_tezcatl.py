@@ -1,18 +1,6 @@
 """
-TEZCATL Sovereign Graph Engine — Authored by Aadrit555
-tests/test_tezcatl.py — Comprehensive Test Suite for Track 01 Submission.
-
-Exhaustively verifies:
-1. Seed topology, schema properties, and cold-start auto-bootstrapping
-2. Bounded multi-hop traversal (*1..8) and evidence ID integrity
-3. Native FalkorDB betweenness centrality (algo.betweenness)
-4. Dynamic operational blast-radius calculation via reverse DEPENDS_ON traversal
-5. Combinatorial minimum-cost vertex-cut solver with operator protection
-6. First-party JSON-RPC 2.0 Model Context Protocol (MCP) tool server
-7. Smoking Mirror multi-graph sandbox isolation (tezcatl_mirror vs. prod_graph)
-8. Sovereign Track 01 agent orchestration (TezcatlAgent)
-9. Human-in-the-loop containment commit, post-action zero-path verification, and audit receipts
-10. Parameterized Cypher verification (zero string formatting / f-strings in queries)
+TEZCATL — Graph-Native Security Containment Agent (FalkorDB)
+Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
 
 import pytest
@@ -158,7 +146,7 @@ def test_native_falkordb_betweenness_centrality(client):
 
 
 # ==============================================================================
-# 4. Dynamic Blast Radius Calculus via Reverse DEPENDS_ON Traversal
+# 4. Dynamic Blast Radius Calculation via Reverse DEPENDS_ON Traversal
 # ==============================================================================
 
 def test_graph_computed_blast_radius(client):
@@ -250,20 +238,20 @@ def test_mcp_tools_list(mcp):
     assert response["id"] == 1
     tools = response["result"]["tools"]
     tool_names = [t["name"] for t in tools]
-    assert "scry_attack_paths" in tool_names
+    assert "find_attack_paths" in tool_names
     assert "rank_betweenness_bottlenecks" in tool_names
     assert "compute_service_blast_radius" in tool_names
     assert "simulate_mirror_containment" in tool_names
     assert "apply_containment_action" in tool_names
 
 
-def test_mcp_tools_call_scry_paths(mcp):
+def test_mcp_tools_call_find_paths(mcp):
     response = mcp.handle_request({
         "jsonrpc": "2.0",
         "id": "req-2",
         "method": "tools/call",
         "params": {
-            "name": "scry_attack_paths",
+            "name": "find_attack_paths",
             "arguments": {"source_id": "ci_runner", "max_hops": 8},
         },
     })
@@ -322,7 +310,7 @@ def test_shadow_mirror_sandbox_isolation(client):
 
 
 # ==============================================================================
-# 8. Sovereign Track 01 Autonomous Agent (TezcatlAgent)
+# 8. Autonomous Agent (TezcatlAgent)
 # ==============================================================================
 
 def test_tezcatl_agent_investigation_e2e(agent):
@@ -338,7 +326,7 @@ def test_tezcatl_agent_investigation_e2e(agent):
     assert analysis.recommended_plan is not None
     assert analysis.recommended_plan.total_cost == 5
     assert set(analysis.recommended_plan.selected_node_ids) == {"deploy_token", "artifact_token"}
-    assert analysis.counterfactual_remaining_paths == 0
+    assert analysis.sandbox_remaining_paths == 0
     assert analysis.audit_receipt is not None
     assert analysis.audit_receipt.verification_status == "CONTAINED_AND_VERIFIED"
 
@@ -561,7 +549,7 @@ def test_fastapi_investigate_endpoint(http_client):
     assert len(analysis["discovered_paths"]) == 3
     assert analysis["recommended_plan"]["total_cost"] == 5
     assert set(analysis["recommended_plan"]["selected_node_ids"]) == {"deploy_token", "artifact_token"}
-    assert analysis["counterfactual_remaining_paths"] == 0
+    assert analysis["sandbox_remaining_paths"] == 0
     assert "audit_receipt" in analysis
 
 
@@ -624,7 +612,7 @@ def test_fastapi_mcp_endpoint(http_client):
     data = res.json()
     assert "result" in data
     tool_names = [t["name"] for t in data["result"]["tools"]]
-    assert "scry_attack_paths" in tool_names
+    assert "find_attack_paths" in tool_names
     assert "simulate_mirror_containment" in tool_names
 
     # tools/call
@@ -633,7 +621,7 @@ def test_fastapi_mcp_endpoint(http_client):
         "id": "2",
         "method": "tools/call",
         "params": {
-            "name": "scry_attack_paths",
+            "name": "find_attack_paths",
             "arguments": {"source_id": "ci_runner", "target_id": "signing_key", "max_hops": 8},
         },
     }

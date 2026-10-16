@@ -1,15 +1,6 @@
 """
-TEZCATL Sovereign Graph Engine — Authored by Aadrit555
-agent.py — Track 01 Sovereign Agent Orchestrator.
-
-Autonomous incident containment agent powered natively by FalkorDB:
-- Multi-hop OpenCypher attack-path discovery (*1..8)
-- Native algo.betweenness centrality ranking
-- Dynamic downstream service blast-radius calculation
-- JSON-RPC 2.0 Model Context Protocol (MCP) tool dispatch
-- Shadow-graph mirror verification in tezcatl_mirror
-- Cryptographic SHA-256 graph state receipts
-Zero external APIs, zero third-party agent frameworks.
+TEZCATL — Graph-Native Security Containment Agent (FalkorDB)
+Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
 
 import time
@@ -40,7 +31,7 @@ from models import (
 
 class TezcatlAgent:
     """
-    Sovereign Track 01 Autonomous Agent for TEZCATL.
+    Autonomous Incident Containment Agent for TEZCATL.
     Dispatches graph tools via first-party JSON-RPC 2.0 MCP interface.
     """
 
@@ -67,7 +58,7 @@ class TezcatlAgent:
         run_mirror_sim: bool = True,
     ) -> Tuple[IncidentAnalysisResult, List[PipelineStageResult]]:
         """
-        Executes complete 5-stage sovereign investigation via MCP tool dispatch.
+        Executes complete 5-stage containment investigation via MCP tool dispatch.
         Returns IncidentAnalysisResult and list of PipelineStageResults.
         """
         stages: List[PipelineStageResult] = []
@@ -173,13 +164,13 @@ class TezcatlAgent:
         ))
 
         # ----------------------------------------------------------------------
-        # Stage 2: Graph Scrying & Telemetry via JSON-RPC MCP Tool Dispatch
+        # Stage 2: Graph Path Discovery & Telemetry via JSON-RPC MCP Tool Dispatch
         # ----------------------------------------------------------------------
         t0 = time.perf_counter()
         initial_history_len = len(self.client.telemetry_history)
 
-        # 1. MCP Call: scry_attack_paths
-        raw_paths = self.mcp.call_tool("scry_attack_paths", {
+        # 1. MCP Call: find_attack_paths
+        raw_paths = self.mcp.call_tool("find_attack_paths", {
             "source_id": context.resolved_source_id,
             "target_id": context.resolved_target_id,
             "max_hops": context.max_hops,
@@ -203,11 +194,11 @@ class TezcatlAgent:
 
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         stages.append(PipelineStageResult(
-            stage_name="Stage 2: Graph Scrying & Telemetry Dispatcher (MCP)",
+            stage_name="Stage 2: Graph Path Discovery & Telemetry Dispatcher (MCP)",
             status="SUCCESS",
             execution_time_ms=round(elapsed_ms, 3),
             cypher_queries_executed=cypher_queries,
-            output_summary=f"Scried {len(paths)} paths, {len(centralities)} centralities, {len(candidates)} candidates via MCP dispatch.",
+            output_summary=f"Discovered {len(paths)} paths, {len(centralities)} centralities, {len(candidates)} candidates via MCP dispatch.",
             stage_data={"paths_count": len(paths), "centralities_count": len(centralities), "candidates_count": len(candidates)},
         ))
 
@@ -243,7 +234,7 @@ class TezcatlAgent:
         ))
 
         # ----------------------------------------------------------------------
-        # Stage 4: Smoking Mirror Sandbox Simulator via MCP Dispatch
+        # Stage 4: Shadow Mirror Sandbox Simulator via MCP Dispatch
         # ----------------------------------------------------------------------
         t0 = time.perf_counter()
         sandbox_verified = False
@@ -267,7 +258,7 @@ class TezcatlAgent:
 
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             stages.append(PipelineStageResult(
-                stage_name="Stage 4: Smoking Mirror Sandbox Simulator (MCP)",
+                stage_name="Stage 4: Shadow Mirror Sandbox Simulator (MCP)",
                 status="SUCCESS" if sandbox_verified else "FAILED",
                 execution_time_ms=round(elapsed_ms, 3),
                 cypher_queries_executed=cypher_queries,
@@ -277,7 +268,7 @@ class TezcatlAgent:
         else:
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             stages.append(PipelineStageResult(
-                stage_name="Stage 4: Smoking Mirror Sandbox Simulator (MCP)",
+                stage_name="Stage 4: Shadow Mirror Sandbox Simulator (MCP)",
                 status="SKIPPED",
                 execution_time_ms=round(elapsed_ms, 3),
                 cypher_queries_executed=[],
@@ -358,7 +349,7 @@ class TezcatlAgent:
             centrality_scores=centralities,
             eligible_candidates=candidates,
             recommended_plan=plan,
-            counterfactual_remaining_paths=remaining_paths,
+            sandbox_remaining_paths=remaining_paths,
             graph_is_contained=len(paths) == 0,
             status_message="Analysis complete via TezcatlAgent.",
             telemetry=self.client.last_telemetry,

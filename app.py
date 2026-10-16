@@ -1,20 +1,6 @@
 """
-TEZCATL Sovereign Graph Engine — Authored by Aadrit555
-app.py — Production FastAPI Gateway & Sovereign Agent Server.
-
-Endpoints:
-- GET  /                  -> Driftbar Meadow Footer Hero & Nomi AI Glassbar Console
-- GET  /api/health        -> Real-time FalkorDB graph connectivity & topology stats
-- GET  /api/state         -> Live graph state, scried paths, betweenness centrality & cut solution
-- POST /api/investigate   -> 5-Stage deterministic scrying, betweenness & mirror sandbox
-- POST /api/contain       -> Gated human containment commit & post-action zero-path verification
-- POST /api/reset         -> Restore pristine FalkorDB topology
-- POST /api/mutate/bypass -> Dynamic stress-test bypass edge toggle
-- POST /api/stress/bypass -> Inject/remove stress-test bypass route
-- POST /api/stress/cost   -> Mutate node disruption cost
-- POST /api/mcp           -> JSON-RPC 2.0 Model Context Protocol tool endpoint
-
-Zero external APIs, zero third-party agent frameworks. 100% first-party sovereign Python.
+TEZCATL — Graph-Native Security Containment Agent (FalkorDB)
+Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
 
 import os
@@ -43,8 +29,8 @@ from models import (
 
 # Initialize application
 app = FastAPI(
-    title="TEZCATL // Obsidian Mirror Graph Containment Engine",
-    description="Multi-Hop Breach Discovery, Blast-Radius Calculus & Shadow-Graph Verification powered by FalkorDB",
+    title="TEZCATL // Graph Containment Engine",
+    description="Multi-Hop Breach Discovery, Service Impact Analysis & Shadow-Graph Verification powered by FalkorDB",
     version="2.0.0",
 )
 
@@ -148,7 +134,7 @@ class StressCostRequest(BaseModel):
 
 @app.get("/", response_class=FileResponse)
 def serve_index():
-    """Serve the clean-room brutalist Driftbar Meadow UI."""
+    """Serve the minimal Meadow Landing UI."""
     if not os.path.exists(FRONTEND_PATH):
         raise HTTPException(status_code=404, detail="frontend/index.html not found.")
     return FileResponse(FRONTEND_PATH, media_type="text/html")
@@ -190,7 +176,7 @@ def get_health():
 def get_graph_state(source_id: str = Query(default="ci_runner")):
     """
     Returns full structured state for the interactive workspace console:
-    - Active path count and scried variable-length routes (*1..8)
+    - Active path count and discovered variable-length routes (*1..8)
     - Ranked betweenness centrality & dynamic service blast costs
     - Minimum-cut solution verified in tezcatl_mirror sandbox
     - Live OpenCypher query telemetry
@@ -266,11 +252,11 @@ def get_graph_state(source_id: str = Query(default="ci_runner")):
 @app.post("/api/investigate")
 def run_investigation(req: InvestigateRequest):
     """
-    Executes the 5-stage Tezcatl sovereign pipeline via FalkorDB & MCP tools:
+    Executes the 5-stage Tezcatl pipeline via FalkorDB & MCP tools:
     1. Intent & Entity Resolution
-    2. Multi-hop Scrying (*1..8) & algo.betweenness centrality
+    2. Multi-hop Path Discovery (*1..8) & algo.betweenness centrality
     3. Combinatorial Minimum-Cut Solver
-    4. Smoking Mirror Sandbox (tezcatl_mirror vs. prod_graph)
+    4. Shadow Graph Sandbox (tezcatl_mirror vs. prod_graph)
     5. SHA-256 Containment Audit Receipt Synthesis
     """
     try:
