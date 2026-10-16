@@ -3,11 +3,13 @@ TEZCATL Sovereign Graph Engine — Authored by Aadrit555
 app.py — Production FastAPI Gateway & Sovereign Agent Server.
 
 Endpoints:
-- GET  /                  -> Driftbar Meadow Footer Hero & Frosted Glass SecOps Console
+- GET  /                  -> Driftbar Meadow Footer Hero & Nomi AI Glassbar Console
 - GET  /api/health        -> Real-time FalkorDB graph connectivity & topology stats
+- GET  /api/state         -> Live graph state, scried paths, betweenness centrality & cut solution
 - POST /api/investigate   -> 5-Stage deterministic scrying, betweenness & mirror sandbox
 - POST /api/contain       -> Gated human containment commit & post-action zero-path verification
 - POST /api/reset         -> Restore pristine FalkorDB topology
+- POST /api/mutate/bypass -> Dynamic stress-test bypass edge toggle
 - POST /api/stress/bypass -> Inject/remove stress-test bypass route
 - POST /api/stress/cost   -> Mutate node disruption cost
 - POST /api/mcp           -> JSON-RPC 2.0 Model Context Protocol tool endpoint
@@ -17,8 +19,9 @@ Zero external APIs, zero third-party agent frameworks. 100% first-party sovereig
 
 import os
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from config import settings
@@ -45,6 +48,12 @@ app = FastAPI(
     version="2.0.0",
 )
 
+# Mount assets directory for brand crest and imagery
+ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
+if os.path.exists(ASSETS_DIR):
+    app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+    app.mount("/static/assets", StaticFiles(directory=ASSETS_DIR), name="static_assets")
+
 # Initialize singletons
 graph_client = FalkorGraphClient(
     host=settings.falkordb_host,
@@ -64,6 +73,16 @@ agent = TezcatlAgent(
 FRONTEND_PATH = os.path.join(os.path.dirname(__file__), "frontend", "index.html")
 
 
+def resolve_entity_id(raw_id: str) -> str:
+    """Normalize user-facing dropdown aliases (e.g. ci-runner-07 -> ci_runner)."""
+    clean = raw_id.strip().lower()
+    if clean in ("ci-runner-07", "ci_runner", "cirunner", "runner"):
+        return "ci_runner"
+    if clean in ("staging-worker-02", "staging_worker", "staging_deployer"):
+        return "staging_deployer"
+    return clean.replace("-", "_")
+
+
 # ==============================================================================
 # Request / Response Schemas
 # ==============================================================================
@@ -79,7 +98,9 @@ class InvestigateRequest(BaseModel):
 class ContainRequest(BaseModel):
     source_id: str = Field(default="ci_runner")
     target_id: str = Field(default="signing_key")
-    cut_node_ids: List[str] = Field(..., min_length=1)
+    cut_node_ids: Optional[List[str]] = None
+    cut_nodes: Optional[List[str]] = None
+    blast_cost: Optional[int] = 0
     incident_id: str = Field(default="INC-TEZCATL-COMMIT")
     max_hops: int = Field(default=8, ge=1, le=8)
 
@@ -89,6 +110,10 @@ class StressBypassRequest(BaseModel):
     source_id: str = Field(default="ci_runner")
     target_id: str = Field(default="signing_key")
     evidence_id: str = Field(default="E-BYPASS-STRESS")
+
+
+class MutateBypassRequest(BaseModel):
+    source_id: str = Field(default="ci_runner")
 
 
 class StressCostRequest(BaseModel):
@@ -140,6 +165,83 @@ def get_health():
         )
 
 
+@app.get("/api/state")
+def get_graph_state(source_id: str = Query(default="ci_runner")):
+    """
+    Returns full structured state for the interactive workspace console:
+    - Active path count and scried variable-length routes (*1..8)
+    - Ranked betweenness centrality & dynamic service blast costs
+    - Minimum-cut solution verified in tezcatl_mirror sandbox
+    - Live OpenCypher query telemetry
+    """
+    resolved_source = resolve_entity_id(source_id)
+    try:
+        analysis, stages = agent.run_investigation(
+            override_source=resolved_source,
+            override_target="signing_key",
+            override_hops=8,
+            run_mirror_sim=True,
+        )
+
+        # Centrality score map for quick lookup
+        cent_map = {c.id: c.score for c in analysis.centrality_scores}
+
+        candidates_data = [
+            {
+                "id": c.id,
+                "centrality": round(cent_map.get(c.id, 0.0), 3),
+                "blast_cost": c.cost,
+                "services": c.downstream_services,
+            }
+            for c in analysis.eligible_candidates
+        ]
+
+        paths_data = [
+            {
+                "path_id": f"ROUTE-{i+1}",
+                "hops": p.hops,
+                "nodes": [{"id": nid} for nid in p.node_ids],
+                "mechanisms": p.mechanisms,
+                "evidence_ids": p.evidence_ids,
+            }
+            for i, p in enumerate(analysis.discovered_paths)
+        ]
+
+        optimal_cut = None
+        if analysis.recommended_plan and analysis.recommended_plan.selected_node_ids:
+            optimal_cut = {
+                "cut_nodes": analysis.recommended_plan.selected_node_ids,
+                "cut_names": analysis.recommended_plan.selected_node_names,
+                "blast_cost": analysis.recommended_plan.total_cost,
+            }
+
+        telemetry_data = [
+            {
+                "graph": settings.falkordb_graph,
+                "execution_ms": t.latency_ms,
+                "cypher": t.query,
+            }
+            for t in graph_client.telemetry_history[-6:]
+        ]
+
+        return {
+            "source_id": resolved_source,
+            "target_id": analysis.target_id,
+            "active_path_count": len(analysis.discovered_paths),
+            "paths": paths_data,
+            "candidates": candidates_data,
+            "cut_solution": {
+                "optimal": optimal_cut,
+            },
+            "mirror_proof": analysis.mirror_simulation,
+            "telemetry": telemetry_data,
+            "graph_is_contained": analysis.graph_is_contained,
+            "pre_mitigation_hash": analysis.pre_mitigation_hash,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch graph state: {exc}")
+
+
 @app.post("/api/investigate")
 def run_investigation(req: InvestigateRequest):
     """
@@ -151,9 +253,10 @@ def run_investigation(req: InvestigateRequest):
     5. SHA-256 Containment Audit Receipt Synthesis
     """
     try:
+        resolved_source = resolve_entity_id(req.source_id)
         analysis, stages = agent.run_investigation(
             raw_query=req.raw_query,
-            override_source=req.source_id,
+            override_source=resolved_source,
             override_target=req.target_id,
             override_excludes=req.exclude_ids,
             override_hops=req.max_hops,
@@ -179,14 +282,28 @@ def commit_containment(req: ContainRequest):
     4. Issues immutable SHA-256 Containment Audit Receipt.
     """
     try:
+        chosen_cuts = req.cut_node_ids or req.cut_nodes or []
+        if not chosen_cuts:
+            raise HTTPException(status_code=400, detail="cut_node_ids or cut_nodes must be non-empty.")
+
+        resolved_source = resolve_entity_id(req.source_id)
+        current_paths = graph_client.discover_attack_paths(
+            source_id=resolved_source, target_id=req.target_id, max_hops=req.max_hops
+        )
+        pre_paths = len(current_paths)
+
         mutation, receipt = agent.execute_containment(
-            source_id=req.source_id,
+            source_id=resolved_source,
             target_id=req.target_id,
-            expected_cut_ids=req.cut_node_ids,
+            expected_cut_ids=chosen_cuts,
             incident_id=req.incident_id,
             max_hops=req.max_hops,
         )
+
         return {
+            "pre_paths": pre_paths,
+            "post_paths": receipt.verified_remaining_paths,
+            "sha256_receipt": receipt.post_mitigation_graph_hash,
             "mutation": mutation.model_dump(),
             "receipt": receipt.model_dump(),
             "status": "CONTAINED_AND_VERIFIED" if receipt.verified_remaining_paths == 0 else "PARTIAL",
@@ -211,13 +328,37 @@ def reset_database():
         raise HTTPException(status_code=500, detail=f"Failed to reset graph: {exc}")
 
 
+@app.post("/api/mutate/bypass")
+def toggle_mutate_bypass(req: MutateBypassRequest):
+    """Toggles or injects a bypass edge for stress testing."""
+    resolved_source = resolve_entity_id(req.source_id)
+    try:
+        # Check if bypass exists
+        check_q = "MATCH ()-[r:ATTACK_STEP {evidence_id: $ev}]->() RETURN count(r) AS cnt"
+        res = graph_client._execute_query(check_q, {"ev": "E-BYPASS-STRESS"}, read_only=True)
+        exists = int(res.result_set[0][0]) if res.result_set else 0
+
+        if exists > 0:
+            deleted = graph_client.remove_bypass_edge("E-BYPASS-STRESS")
+            return {"status": "SUCCESS", "action": "removed", "edges_deleted": deleted}
+        else:
+            created = graph_client.inject_bypass_edge(
+                source_id=resolved_source,
+                target_id="signing_key",
+                evidence_id="E-BYPASS-STRESS",
+            )
+            return {"status": "SUCCESS", "action": "injected", "edges_created": created}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @app.post("/api/stress/bypass")
 def toggle_bypass_route(req: StressBypassRequest):
     """Injects or removes a direct or lateral bypass edge for stress testing."""
     try:
         if req.action == "inject":
             created = graph_client.inject_bypass_edge(
-                source_id=req.source_id,
+                source_id=resolve_entity_id(req.source_id),
                 target_id=req.target_id,
                 evidence_id=req.evidence_id,
             )

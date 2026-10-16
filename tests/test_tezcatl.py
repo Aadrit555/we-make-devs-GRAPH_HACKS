@@ -526,11 +526,12 @@ def http_client():
 
 
 def test_fastapi_index_html_serving(http_client):
-    """Verify exact Driftbar Meadow Footer index.html is served on GET /."""
+    """Verify clean-room brutalist frontend/index.html is served on GET /."""
     res = http_client.get("/")
     assert res.status_code == 200
-    assert "Driftbar" in res.text
+    assert "TEZCATL" in res.text
     assert "#f1f1ee" in res.text
+    assert "falkordb" in res.text.lower()
 
 
 def test_fastapi_health_endpoint(http_client):
@@ -639,5 +640,32 @@ def test_fastapi_mcp_endpoint(http_client):
     res_call = http_client.post("/api/mcp", json=rpc_call)
     assert res_call.status_code == 200
     data_call = res_call.json()
-    assert "result" in data_call
     assert len(data_call["result"]["content"]) == 3
+
+
+def test_fastapi_state_endpoint(http_client):
+    """Verify /api/state returns full workspace console telemetry."""
+    seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=PROD_GRAPH)
+    res = http_client.get("/api/state?source_id=ci-runner-07")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["source_id"] == "ci_runner"
+    assert data["active_path_count"] == 3
+    assert len(data["paths"]) == 3
+    assert len(data["candidates"]) > 0
+    assert data["cut_solution"]["optimal"]["blast_cost"] == 5
+    assert len(data["telemetry"]) > 0
+
+
+def test_fastapi_mutate_bypass_toggle(http_client):
+    """Verify /api/mutate/bypass toggles bypass route."""
+    seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=PROD_GRAPH)
+    # Inject
+    res1 = http_client.post("/api/mutate/bypass", json={"source_id": "ci-runner-07"})
+    assert res1.status_code == 200
+    assert res1.json()["action"] == "injected"
+
+    # Toggle remove
+    res2 = http_client.post("/api/mutate/bypass", json={"source_id": "ci-runner-07"})
+    assert res2.status_code == 200
+    assert res2.json()["action"] == "removed"
