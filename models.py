@@ -5,7 +5,7 @@ pipeline stages, and cryptographic receipts.
 """
 
 import json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -228,52 +228,43 @@ class PipelineStageResult(BaseModel):
     stage_data: Dict[str, Any] = Field(default_factory=dict)
 
 
+
 # ==============================================================================
-# Model Context Protocol (MCP) JSON-RPC 2.0 Schemas
+# Model Context Protocol (MCP) JSON-RPC 2.0 Models
 # ==============================================================================
-
-class JsonRpcRequest(BaseModel):
-    """Strict JSON-RPC 2.0 Request model."""
-    model_config = ConfigDict(extra="forbid")
-
-    jsonrpc: str = Field(default="2.0", pattern=r"^2\.0$")
-    id: Optional[Any] = None
-    method: str
-    params: Dict[str, Any] = Field(default_factory=dict)
-
 
 class JsonRpcError(BaseModel):
-    """Strict JSON-RPC 2.0 Error model."""
-    model_config = ConfigDict(extra="forbid")
-
+    """JSON-RPC 2.0 error object."""
     code: int
     message: str
     data: Optional[Any] = None
 
 
-class JsonRpcResponse(BaseModel):
-    """Strict JSON-RPC 2.0 Response model."""
-    model_config = ConfigDict(extra="forbid")
+class JsonRpcRequest(BaseModel):
+    """Standard JSON-RPC 2.0 request payload."""
+    jsonrpc: str = "2.0"
+    id: Optional[Union[str, int]] = None
+    method: str
+    params: Dict[str, Any] = Field(default_factory=dict)
 
-    jsonrpc: str = Field(default="2.0", pattern=r"^2\.0$")
-    id: Optional[Any] = None
+
+class JsonRpcResponse(BaseModel):
+    """Standard JSON-RPC 2.0 response payload."""
+    jsonrpc: str = "2.0"
+    id: Optional[Union[str, int]] = None
     result: Optional[Any] = None
     error: Optional[JsonRpcError] = None
 
 
 class McpToolDefinition(BaseModel):
-    """MCP Tool schema definition."""
-    model_config = ConfigDict(extra="forbid")
-
+    """MCP tool metadata declaration for tools/list."""
     name: str
     description: str
-    inputSchema: Dict[str, Any]
+    inputSchema: Dict[str, Any] = Field(default_factory=dict)
 
 
 class McpCallToolRequest(BaseModel):
-    """MCP tools/call request payload."""
-    model_config = ConfigDict(extra="forbid")
-
+    """Payload for tools/call invocation."""
     name: str
     arguments: Dict[str, Any] = Field(default_factory=dict)
 
