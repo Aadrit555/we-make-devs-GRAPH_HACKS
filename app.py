@@ -74,13 +74,34 @@ FRONTEND_PATH = os.path.join(os.path.dirname(__file__), "frontend", "index.html"
 
 
 def resolve_entity_id(raw_id: str) -> str:
-    """Normalize user-facing dropdown aliases (e.g. ci-runner-07 -> ci_runner)."""
+    """Normalize user-facing dropdown aliases and stylized entity names."""
     clean = raw_id.strip().lower()
-    if clean in ("ci-runner-07", "ci_runner", "cirunner", "runner"):
-        return "ci_runner"
-    if clean in ("staging-worker-02", "staging_worker", "staging_deployer"):
-        return "staging_deployer"
-    return clean.replace("-", "_")
+    mapping = {
+        "ci-runner-07": "ci_runner",
+        "ci_runner": "ci_runner",
+        "cirunner": "ci_runner",
+        "runner": "ci_runner",
+        "staging-worker-02": "staging_deployer",
+        "staging_worker": "staging_deployer",
+        "staging_deployer": "staging_deployer",
+        "tok-deploy-alpha": "deploy_token",
+        "deploy_token": "deploy_token",
+        "tok-artifact-rw": "artifact_token",
+        "artifact_token": "artifact_token",
+        "role-cloud-deployer": "production_deploy_role",
+        "production_deploy_role": "production_deploy_role",
+        "pkg-registry-core": "artifact_registry",
+        "artifact_registry": "artifact_registry",
+        "session-legacy-deploy": "legacy_release_session",
+        "legacy_release_session": "legacy_release_session",
+        "release-controller": "release_controller",
+        "release_controller": "release_controller",
+        "role-release-signer": "signer_role",
+        "signer_role": "signer_role",
+        "prod-signing-key": "signing_key",
+        "signing_key": "signing_key",
+    }
+    return mapping.get(clean, clean.replace("-", "_"))
 
 
 # ==============================================================================
