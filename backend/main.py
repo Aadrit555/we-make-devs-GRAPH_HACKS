@@ -2,23 +2,88 @@
 TEZCATL — Graph-Native Breach Containment Agent on FalkorDB
 Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
+import secrets
 from pathlib import Path
-from typing import Optional
-from fastapi import FastAPI, HTTPException, Query
+from typing import Optional, List
+from fastapi import FastAPI, HTTPException, Query, Depends, Header, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from backend.models import (
     CutActionRequest,
+    PrepareMirrorRequest,
     SourceRequest,
     SecurityTopologyManifest,
     ScenarioSummary,
+    MirrorProof,
 )
 from backend.graph_client import TezcatlGraphEngine
 from backend.scenarios import SCENARIO_REGISTRY
-from backend.config import PROD_GRAPH, MIRROR_GRAPH, MAX_MANIFEST_BYTES
+import os
+import backend.config as config
+from backend.config import (
+    PROD_GRAPH,
+    MIRROR_GRAPH,
+    MAX_MANIFEST_BYTES,
+    FALKORDB_HOST,
+    FALKORDB_PORT,
+)
 
 app = FastAPI(title="TEZCATL — FalkorDB Breach Containment Engine")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 engine = TezcatlGraphEngine()
+
+security_bearer = HTTPBearer(auto_error=False)
+
+
+def require_operator_auth(
+    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+    bearer_creds: Optional[HTTPAuthorizationCredentials] = Security(security_bearer),
+) -> bool:
+    """Enforces constant-time operator authentication for state-mutating operations.
+
+    Fails closed if TEZCATL_ADMIN_TOKEN is unset in the environment.
+    """
+    if not config.REQUIRE_AUTH:
+        return True
+
+    admin_token = config.ADMIN_TOKEN or os.getenv("TEZCATL_ADMIN_TOKEN")
+
+    # Fail closed if server has no configured secret token
+    if not admin_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication failed: TEZCATL_ADMIN_TOKEN is not configured on server (failing closed).",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token_provided = x_admin_token
+    if not token_provided and bearer_creds:
+        token_provided = bearer_creds.credentials
+
+    if not token_provided:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing operator authentication token. Provide X-Admin-Token header or Authorization: Bearer <token>.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not secrets.compare_digest(token_provided.encode("utf-8"), admin_token.encode("utf-8")):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid operator token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return True
 
 
 def bootstrap_all_scenarios():
@@ -40,13 +105,40 @@ bootstrap_all_scenarios()
 @app.get("/api/health")
 def get_health():
     """Verify live FalkorDB connectivity and graph bootstrap status."""
+    try:
+        _, tel = engine._run(engine.prod_name, "RETURN 1")
+        falkordb_status = "ONLINE"
+        ping_ms = tel.get("execution_ms", 0.0)
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"FalkorDB unreachable at {FALKORDB_HOST}:{FALKORDB_PORT}: {e}",
+        )
     return {
         "status": "HEALTHY",
+        "falkordb": falkordb_status,
+        "ping_ms": ping_ms,
         "service": "TEZCATL Graph Engine",
         "prod_graph": engine.prod_name,
         "mirror_graph": engine.mirror_name,
         "active_scenarios": [s.id for s in SCENARIO_REGISTRY.list_scenarios()],
     }
+
+
+@app.get("/api/auth/status")
+def get_auth_status():
+    """Returns whether operator authorization is enforced and if an admin token is active."""
+    admin_token = config.ADMIN_TOKEN or os.getenv("TEZCATL_ADMIN_TOKEN")
+    return {
+        "auth_required": config.REQUIRE_AUTH,
+        "token_configured": bool(admin_token),
+    }
+
+
+@app.get("/api/audit")
+def get_audit_log():
+    """Returns canonical immutable SHA-256 action audit log records."""
+    return engine.get_audit_log()
 
 
 @app.get("/api/scenarios", response_model=list[ScenarioSummary])
@@ -56,10 +148,13 @@ def list_available_scenarios():
 
 
 @app.post("/api/scenarios/import")
-def import_scenario(manifest: SecurityTopologyManifest):
-    """
-    Imports and validates an external security-topology manifest into an isolated FalkorDB graph.
-    Never overwrites prod_graph.
+def import_scenario(
+    manifest: SecurityTopologyManifest,
+    auth: bool = Depends(require_operator_auth),
+):
+    """Imports and validates an external security-topology manifest into an isolated FalkorDB graph.
+
+    Never overwrites prod_graph. Requires operator authentication.
     """
     manifest_json = manifest.model_dump_json()
     if len(manifest_json.encode("utf-8")) > MAX_MANIFEST_BYTES:
@@ -132,19 +227,8 @@ def get_investigation_state(
     )
     cut_solution = engine.solve_minimum_cut_set(active_source, paths, candidates)
 
-    mirror_proof = None
-    mirror_tels = []
-    if cut_solution["optimal"]:
-        mirror_proof = engine.verify_in_shadow_mirror(
-            active_source,
-            cut_solution["optimal"]["cut_nodes"],
-            prod_graph=graph_name,
-            mirror_graph=mirror_name,
-            target_ids=target_ids,
-            max_depth=max_depth,
-        )
-        mirror_tels = mirror_proof.get("telemetry", [])
-
+    # Note: Mirror verification is decoupled from GET /api/state to preserve HTTP idempotency.
+    # Operators trigger mirror modeling via POST /api/mirror/prepare.
     return {
         "scenario_id": scenario_id,
         "scenario_name": scen["name"],
@@ -158,29 +242,71 @@ def get_investigation_state(
         "paths": paths,
         "candidates": candidates,
         "cut_solution": cut_solution,
-        "mirror_proof": mirror_proof,
-        "telemetry": [top_tel, path_tel, *calc_tels, *mirror_tels],
+        "mirror_proof": None,
+        "telemetry": [top_tel, path_tel, *calc_tels],
     }
 
 
-@app.post("/api/contain")
-def execute_containment(req: CutActionRequest):
+@app.post("/api/mirror/prepare", response_model=MirrorProof)
+def prepare_mirror(
+    req: PrepareMirrorRequest,
+    auth: bool = Depends(require_operator_auth),
+):
+    """Clones prod_graph to tezcatl_mirror and models the cut to verify zero residual attack paths."""
     scen = SCENARIO_REGISTRY.get_scenario(req.scenario_id)
     if not scen:
         raise HTTPException(status_code=404, detail=f"Scenario '{req.scenario_id}' not found.")
 
-    target_ids = scen["manifest"].scenario.target_ids if scen["manifest"].scenario else None
-    return engine.commit_containment(
+    sec = scen["manifest"].scenario
+    target_ids = sec.target_ids if sec else None
+    max_depth = sec.max_depth if sec else 8
+
+    mirror_proof = engine.verify_in_shadow_mirror(
         req.source_id,
         req.cut_nodes,
-        req.blast_cost,
-        graph_name=scen["graph_name"],
+        prod_graph=scen["graph_name"],
+        mirror_graph=scen["mirror_name"],
         target_ids=target_ids,
+        max_depth=max_depth,
     )
+    return mirror_proof
+
+
+@app.post("/api/contain")
+def execute_containment(
+    req: CutActionRequest,
+    auth: bool = Depends(require_operator_auth),
+):
+    scen = SCENARIO_REGISTRY.get_scenario(req.scenario_id)
+    if not scen:
+        raise HTTPException(status_code=404, detail=f"Scenario '{req.scenario_id}' not found.")
+
+    scenario = scen["manifest"].scenario if (scen and "manifest" in scen and scen["manifest"]) else None
+    target_ids = scenario.target_ids if scenario else None
+    max_depth = scenario.max_depth if scenario else 8
+    try:
+        return engine.commit_containment(
+            req.source_id,
+            req.cut_nodes,
+            req.blast_cost,
+            graph_name=scen["graph_name"],
+            target_ids=target_ids,
+            max_depth=max_depth,
+            plan_fingerprint=req.plan_fingerprint,
+            scenario_id=req.scenario_id,
+            scenario=scenario,
+        )
+    except ValueError as e:
+        if "STALE_PLAN_DETECTED" in str(e):
+            raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/api/mutate/bypass")
-def mutate_bypass(req: SourceRequest):
+def mutate_bypass(
+    req: SourceRequest,
+    auth: bool = Depends(require_operator_auth),
+):
     scen = SCENARIO_REGISTRY.get_scenario(req.scenario_id)
     if not scen:
         raise HTTPException(status_code=404, detail=f"Scenario '{req.scenario_id}' not found.")
@@ -196,7 +322,10 @@ def mutate_bypass(req: SourceRequest):
 
 
 @app.post("/api/reset")
-def reset_scenario(scenario_id: str = Query("cicd-compromise", description="Scenario ID to reset")):
+def reset_scenario(
+    scenario_id: str = Query("cicd-compromise", description="Scenario ID to reset"),
+    auth: bool = Depends(require_operator_auth),
+):
     scen = SCENARIO_REGISTRY.get_scenario(scenario_id)
     if not scen:
         raise HTTPException(status_code=404, detail=f"Scenario '{scenario_id}' not found.")

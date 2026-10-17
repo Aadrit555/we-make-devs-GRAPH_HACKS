@@ -15,4 +15,9 @@ MAX_NODE_COUNT = 250
 MAX_EDGE_COUNT = 500
 MAX_TRAVERSAL_DEPTH = 8
 MAX_CANDIDATES = 100
+MAX_EXACT_CANDIDATES = 18
+
+# Operator Mutation Authentication (Fail-closed: No default secret)
+ADMIN_TOKEN = os.getenv("TEZCATL_ADMIN_TOKEN")
+REQUIRE_AUTH = True
 

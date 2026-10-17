@@ -141,6 +141,14 @@ class CutActionRequest(BaseModel):
     cut_nodes: List[str] = Field(..., min_length=1, description="Nodes to isolate")
     blast_cost: int = Field(default=0, ge=0, description="Calculated service disruption cost")
     scenario_id: str = Field(default="cicd-compromise", description="Target scenario identifier")
+    plan_fingerprint: Optional[str] = Field(default=None, description="Cryptographic fingerprint of plan being authorized")
+
+
+class PrepareMirrorRequest(BaseModel):
+    """Payload for explicitly cloning and modeling containment in shadow mirror graph."""
+    source_id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]{1,64}$", description="Breach origin ID")
+    cut_nodes: List[str] = Field(..., min_length=1, description="Nodes to isolate in mirror")
+    scenario_id: str = Field(default="cicd-compromise", description="Target scenario identifier")
 
 
 class SourceRequest(BaseModel):
@@ -186,7 +194,8 @@ class MitigationCandidate(BaseModel):
     status: str
     blast_cost: int
     impacted_services: List[str]
-    centrality: float
+    centrality: Optional[float] = None
+    centrality_source: Optional[str] = None
 
 
 class CutPlan(BaseModel):
@@ -198,11 +207,14 @@ class CutPlan(BaseModel):
     complete_cut: bool
     impacted_services: List[str]
     proximity: Optional[float] = None
+    plan_fingerprint: Optional[str] = None
 
 
 class CutSolution(BaseModel):
     optimal: Optional[CutPlan] = None
     evaluated: List[CutPlan] = Field(default_factory=list)
+    plan_fingerprint: Optional[str] = None
+    infeasible: bool = False
 
 
 class MirrorProof(BaseModel):

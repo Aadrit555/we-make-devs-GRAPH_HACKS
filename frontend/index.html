@@ -327,10 +327,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 28px;
+      padding: clamp(14px, 2.5vw, 40px);
       opacity: 0;
       pointer-events: none;
       transition: opacity .22s ease;
+      box-sizing: border-box;
     }
 
     .workspace-overlay.is-open {
@@ -340,8 +341,10 @@
 
     .workspace-sheet {
       width: 100%;
-      max-width: 1180px;
-      max-height: 90vh;
+      max-width: min(1680px, 100%);
+      height: 92vh;
+      max-height: 94vh;
+      margin: 0 auto;
       background: rgba(246, 246, 243, 0.96);
       border: 1px solid rgba(12, 12, 12, 0.12);
       border-radius: 18px;
@@ -349,6 +352,7 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      box-sizing: border-box;
     }
 
     .sheet-header {
@@ -357,7 +361,7 @@
       align-items: center;
       flex-wrap: wrap;
       gap: 14px;
-      padding: 18px 24px;
+      padding: clamp(14px, 1.8vw, 20px) clamp(16px, 2vw, 32px);
       background: rgba(255, 255, 255, 0.78);
       border-bottom: 1px solid var(--border);
     }
@@ -425,7 +429,7 @@
       align-items: center;
       flex-wrap: wrap;
       gap: 12px;
-      padding: 14px 24px;
+      padding: 12px clamp(16px, 2vw, 32px);
       background: rgba(241, 241, 238, 0.65);
       border-bottom: 1px solid var(--border);
     }
@@ -492,7 +496,7 @@
     }
 
     .sheet-body {
-      padding: 24px;
+      padding: clamp(16px, 2vw, 32px);
       overflow-y: auto;
       flex: 1;
     }
@@ -505,10 +509,19 @@
       display: block;
     }
 
-    .panel-grid-2 {
+    .panel-grid-2,
+    .verification-layout {
       display: grid;
-      grid-template-columns: 1.35fr 1fr;
-      gap: 18px;
+      grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+      gap: 24px;
+      width: 100%;
+      max-width: none;
+      box-sizing: border-box;
+    }
+
+    .panel-grid-2>*,
+    .verification-layout>* {
+      min-width: 0;
     }
 
     @media (max-width: 1040px) {
@@ -519,6 +532,7 @@
         min-height: 100svh;
         overflow-y: auto;
       }
+
       .footer__content {
         width: 100%;
         max-width: 820px;
@@ -526,26 +540,33 @@
         gap: 36px 24px;
         padding: 44px 28px 120px;
       }
+
       .brand {
         grid-column: 1 / -1;
         max-width: 580px;
       }
+
       .brand__title {
         font-size: clamp(20px, 4vw, 24px);
         line-height: 1.25;
         letter-spacing: -0.03em;
       }
+
       .brand__text {
         max-width: 100%;
         font-size: 14px;
         line-height: 1.45;
       }
+
       .footer__wordmark {
         font-size: clamp(80px, 15vw, 180px);
         bottom: 0;
       }
-      .panel-grid-2 {
+
+      .panel-grid-2,
+      .verification-layout {
         grid-template-columns: 1fr;
+        gap: 16px;
       }
     }
 
@@ -557,40 +578,53 @@
         min-height: 100svh;
         overflow-y: auto;
       }
+
       .footer__content {
         width: 100%;
         grid-template-columns: 1fr;
         gap: 24px;
         padding: 24px 16px 90px;
       }
+
       .brand {
         grid-column: 1;
         max-width: 100%;
       }
+
       .brand__title {
         font-size: clamp(17px, 5.5vw, 21px);
         line-height: 1.22;
         letter-spacing: -0.025em;
       }
+
       .brand__text {
         font-size: 13px;
         line-height: 1.42;
       }
+
       .brand__cta {
         width: 100%;
         max-width: 280px;
         height: 38px;
       }
+
       .footer__wordmark {
         font-size: clamp(48px, 16vw, 90px);
         bottom: 0;
       }
+
       .workspace-overlay {
-        padding: 8px;
+        padding: 6px;
       }
+
       .sheet-header {
         padding: 12px 14px;
       }
+
+      .sheet-toolbar {
+        padding: 10px 14px;
+      }
+
       .sheet-body {
         padding: 14px 10px;
       }
@@ -686,12 +720,14 @@
       from {
         stroke-dashoffset: 20;
       }
+
       to {
         stroke-dashoffset: 0;
       }
     }
 
     @media (prefers-reduced-motion: reduce) {
+
       .edge-active,
       .edge-bypass {
         animation: none !important;
@@ -945,10 +981,15 @@
           <span id="statusPill" class="status-pill status-pill--breach">Querying FalkorDB...</span>
         </div>
 
-        <div class="toolbar-right">
+        <div class="toolbar-right" style="display:flex; align-items:center; gap:8px;">
+          <input type="password" id="operatorTokenInput" placeholder="Operator Token"
+            title="TEZCATL Operator Auth Token" class="select-clean"
+            style="width:130px; font-size:11px; padding:4px 8px; border:1px solid #cbd5e1; border-radius:4px;"
+            oninput="updateOperatorToken(this.value)" autocomplete="off" />
           <button id="btnBypass" class="btn-sheet" onclick="injectBypass()">+ Inject Bypass Edge</button>
           <button id="btnResetTopology" class="btn-sheet" onclick="resetTopology()">Reset Scenario</button>
-          <button id="btnApplyCut" class="btn-sheet btn-sheet--primary" onclick="authorizeCut()">Apply Minimum Cut</button>
+          <button id="btnApplyCut" class="btn-sheet btn-sheet--primary" onclick="authorizeCut()">Apply Minimum
+            Cut</button>
         </div>
       </div>
 
@@ -958,8 +999,11 @@
         </div>
         <div id="archModeBanner" class="arch-mode-banner" style="display:none;">
           <div style="display:flex; align-items:center; gap:8px;">
-            <span class="mono" style="padding:2px 6px; background:#cbd5e1; border-radius:4px; font-weight:600; font-size:10px; color:#1e293b;">ARCHITECTURE MODE</span>
-            <span>Architecture topology loaded into FalkorDB. Security analysis requires an explicit threat model. Attack containment solver is inactive.</span>
+            <span class="mono"
+              style="padding:2px 6px; background:#cbd5e1; border-radius:4px; font-weight:600; font-size:10px; color:#1e293b;">ARCHITECTURE
+              MODE</span>
+            <span>Architecture topology loaded into FalkorDB. Security analysis requires an explicit threat model.
+              Attack containment solver is inactive.</span>
           </div>
         </div>
 
@@ -972,7 +1016,8 @@
               </div>
               <div class="topology-svg-wrap" id="svgContainer"></div>
               <div class="topology-legend">
-                <span class="legend-item"><span class="legend-dot dot-active"></span>Active Attack Route (ATTACK_STEP)</span>
+                <span class="legend-item"><span class="legend-dot dot-active"></span>Active Attack Route
+                  (ATTACK_STEP)</span>
                 <span class="legend-item"><span class="legend-dot dot-bypass"></span>Injected Bypass Edge</span>
                 <span class="legend-item"><span class="legend-dot dot-arch"></span>Architecture Dependency/Call</span>
                 <span class="legend-item"><span class="legend-dot dot-severed"></span>Severed / Contained</span>
@@ -1012,11 +1057,17 @@
         </div>
 
         <div class="feature-panel" id="panel-mirror">
-          <div class="panel-grid-2">
+          <div class="panel-grid-2 verification-layout">
             <div class="paper-card">
               <div class="paper-card__title">
                 <span>Shadow-Graph Sandbox Verification</span>
                 <span class="mono">prod_graph vs tezcatl_mirror</span>
+              </div>
+              <div style="margin-bottom:12px;">
+                <button class="btn-sheet" id="btnPrepareMirror" onclick="prepareMirrorSandbox()"
+                  style="width:100%; justify-content:center; padding:8px 12px; font-weight:600;">
+                  Verify in Shadow Graph (tezcatl_mirror)
+                </button>
               </div>
               <div id="mirrorComparisonBox"></div>
             </div>
@@ -1051,12 +1102,82 @@
   </div>
 
   <script>
+    const API_BASE = (window.location.protocol === 'file:' || (['localhost', '127.0.0.1'].includes(window.location.hostname) && window.location.port && window.location.port !== '8000'))
+      ? 'http://localhost:8000'
+      : '';
+
     let currentOptimalCut = null;
     let currentScenarioId = 'cicd-compromise';
+    let memoryOperatorToken = '';
+
+    function updateOperatorToken(val) {
+      memoryOperatorToken = (val || '').trim();
+    }
+
+    function getMutationHeaders() {
+      const headers = { 'Content-Type': 'application/json' };
+      if (memoryOperatorToken) {
+        headers['X-Admin-Token'] = memoryOperatorToken;
+      }
+      return headers;
+    }
+
+    function renderMirrorProof(proof) {
+      const mirrorBox = document.getElementById('mirrorComparisonBox');
+      if (!mirrorBox) return;
+      mirrorBox.innerHTML = `
+        <div class="path-row" style="border-left:3px solid var(--safe-green);">
+          <div><strong>Recommended Minimum Cut-Set:</strong> <span class="mono">${proof.isolated_nodes.join(' + ')}</span></div>
+          <div style="margin-top:6px; color:var(--safe-green);" class="mono">
+            <strong>${proof.mirror_graph} Sandbox Verification:</strong> ${proof.remaining_paths} remaining paths [${proof.verified_safe ? 'VERIFIED ZERO REACHABILITY' : 'INCOMPLETE'}]
+          </div>
+          <div style="margin-top:6px; font-size:11.5px; color:var(--body);">
+            Modeled in isolated shadow graph. Ready for operator authorization on production graph.
+          </div>
+        </div>
+      `;
+    }
+
+    function showErrorBanner(msg) {
+      const banner = document.getElementById('errorBanner');
+      if (banner) {
+        if (msg) banner.textContent = msg;
+        banner.style.display = 'block';
+      }
+    }
+
+    function hideErrorBanner() {
+      const banner = document.getElementById('errorBanner');
+      if (banner) {
+        banner.style.display = 'none';
+      }
+    }
+
+    async function checkEngineHealth() {
+      try {
+        const res = await fetch(`${API_BASE}/api/health`);
+        if (!res.ok) {
+          showErrorBanner('FalkorDB Engine Offline — Ensure FalkorDB (port 6379) and FastAPI backend are running.');
+          return false;
+        }
+        const data = await res.json();
+        if (data.status === 'HEALTHY' && data.falkordb === 'ONLINE') {
+          hideErrorBanner();
+          return true;
+        } else {
+          showErrorBanner('FalkorDB Engine Offline — Ensure FalkorDB (port 6379) and FastAPI backend are running.');
+          return false;
+        }
+      } catch (e) {
+        showErrorBanner('FalkorDB Engine Offline — Ensure FalkorDB (port 6379) and FastAPI backend are running.');
+        return false;
+      }
+    }
 
     function openFeature(tabName) {
       document.getElementById('workspaceOverlay').classList.add('is-open');
       switchTab(tabName || 'topology');
+      loadGraphState();
     }
 
     function closeWorkspace() {
@@ -1291,28 +1412,28 @@
           const cx2 = Math.round(endPt.x + 22);
           d = `M ${startPt.x} ${startPt.y} C ${cx1} ${cy}, ${cx2} ${cy}, ${endPt.x} ${endPt.y}`;
           const lbl = !isAttack ? edge.type : (edge.mechanism || 'CYCLE');
-          labelEl = `<text class="${!isAttack ? 'edge-arch-label' : 'edge-label'}" x="${Math.round((startPt.x + endPt.x)/2)}" y="${cy + 10}">${lbl}</text>`;
+          labelEl = `<text class="${!isAttack ? 'edge-arch-label' : 'edge-label'}" x="${Math.round((startPt.x + endPt.x) / 2)}" y="${cy + 10}">${lbl}</text>`;
         } else if (isBypass || layerDiff >= 2) {
           const archY = Math.max(16, Math.min(startPt.y, endPt.y) - 68);
           const cx1 = Math.round(startPt.x + (endPt.x - startPt.x) * 0.25);
           const cx2 = Math.round(startPt.x + (endPt.x - startPt.x) * 0.75);
           d = `M ${startPt.x} ${startPt.y} C ${cx1} ${archY}, ${cx2} ${archY}, ${endPt.x} ${endPt.y}`;
           if (isBypass) {
-            labelEl = `<text class="edge-label" x="${Math.round((startPt.x + endPt.x)/2)}" y="${archY - 4}">BYPASS (EV-999)</text>`;
+            labelEl = `<text class="edge-label" x="${Math.round((startPt.x + endPt.x) / 2)}" y="${archY - 4}">BYPASS (EV-999)</text>`;
           } else if (!isAttack) {
-            labelEl = `<text class="edge-arch-label" x="${Math.round((startPt.x + endPt.x)/2)}" y="${archY - 4}">${edge.type}</text>`;
+            labelEl = `<text class="edge-arch-label" x="${Math.round((startPt.x + endPt.x) / 2)}" y="${archY - 4}">${edge.type}</text>`;
           }
         } else if (startPt.y === endPt.y) {
           d = `M ${startPt.x} ${startPt.y} L ${endPt.x} ${endPt.y}`;
           if (!isAttack) {
-            labelEl = `<text class="edge-arch-label" x="${Math.round((startPt.x + endPt.x)/2)}" y="${startPt.y - 4}">${edge.type}</text>`;
+            labelEl = `<text class="edge-arch-label" x="${Math.round((startPt.x + endPt.x) / 2)}" y="${startPt.y - 4}">${edge.type}</text>`;
           }
         } else {
           const cx1 = Math.round(startPt.x + (endPt.x - startPt.x) * 0.45);
           const cx2 = Math.round(endPt.x - (endPt.x - startPt.x) * 0.45);
           d = `M ${startPt.x} ${startPt.y} C ${cx1} ${startPt.y}, ${cx2} ${endPt.y}, ${endPt.x} ${endPt.y}`;
           if (!isAttack) {
-            labelEl = `<text class="edge-arch-label" x="${Math.round((startPt.x + endPt.x)/2)}" y="${Math.round((startPt.y + endPt.y)/2) - 4}">${edge.type}</text>`;
+            labelEl = `<text class="edge-arch-label" x="${Math.round((startPt.x + endPt.x) / 2)}" y="${Math.round((startPt.y + endPt.y) / 2) - 4}">${edge.type}</text>`;
           }
         }
 
@@ -1495,16 +1616,22 @@
       const mirrorBox = document.getElementById('mirrorComparisonBox');
       if (!data.has_threat_model) {
         mirrorBox.innerHTML = `<div class="path-row" style="color:var(--body);">Shadow containment sandbox inactive (zero attack paths).</div>`;
-      } else if (currentOptimalCut && data.mirror_proof) {
+      } else if (data.active_path_count === 0) {
+        mirrorBox.innerHTML = `<div class="path-row" style="color:var(--safe-green);">All attack paths severed in <code>${data.graph_name}</code>.</div>`;
+      } else if (data.mirror_proof) {
+        renderMirrorProof(data.mirror_proof);
+      } else if (currentOptimalCut) {
         mirrorBox.innerHTML = `
           <div class="path-row">
             <div><strong>Recommended Minimum Cut-Set:</strong> <span class="mono">${currentOptimalCut.cut_nodes.join(' + ')}</span></div>
             <div style="margin-top:6px;"><strong>Service Impact Cost:</strong> ${currentOptimalCut.blast_cost}</div>
-            <div style="margin-top:6px; color:var(--safe-green);" class="mono">${data.mirror_proof.mirror_graph} Verification: ${data.mirror_proof.remaining_paths} remaining paths [VERIFIED]</div>
+            <div style="margin-top:6px; color:var(--body);" class="mono">
+              Status: Ready for sandbox modeling. Click "Verify in Shadow Graph" above to clone <code>${data.graph_name}</code> to <code>tezcatl_mirror</code> and test cut before production mutation.
+            </div>
           </div>
         `;
       } else {
-        mirrorBox.innerHTML = `<div class="path-row" style="color:var(--safe-green);">All attack paths severed in <code>${data.graph_name}</code>.</div>`;
+        mirrorBox.innerHTML = `<div class="path-row" style="color:var(--body);">No viable containment cut-set identified.</div>`;
       }
 
       const totalMs = (data.telemetry || []).reduce((acc, t) => acc + (t.execution_ms || 0), 0).toFixed(2);
@@ -1528,13 +1655,57 @@
       const sourceSelect = document.getElementById('sourceSelect');
       let sourceId = resetSource ? '' : (sourceSelect ? sourceSelect.value : '');
       try {
-        const url = `/api/state?scenario_id=${encodeURIComponent(currentScenarioId)}${sourceId ? '&source_id=' + encodeURIComponent(sourceId) : ''}`;
+        const url = `${API_BASE}/api/state?scenario_id=${encodeURIComponent(currentScenarioId)}${sourceId ? '&source_id=' + encodeURIComponent(sourceId) : ''}`;
         const res = await fetch(url);
-        if (!res.ok) throw new Error('Backend error');
+        if (!res.ok) {
+          showErrorBanner('FalkorDB Engine Offline — Ensure FalkorDB (port 6379) and FastAPI backend are running.');
+          return;
+        }
         const data = await res.json();
-        renderUI(data);
+        hideErrorBanner();
+        try {
+          renderUI(data);
+        } catch (uiErr) {
+          console.error("UI rendering error:", uiErr);
+        }
       } catch (err) {
-        document.getElementById('errorBanner').style.display = 'block';
+        console.error("Failed to load graph state:", err);
+        showErrorBanner('FalkorDB Engine Offline — Ensure FalkorDB (port 6379) and FastAPI backend are running.');
+      }
+    }
+
+    async function prepareMirrorSandbox() {
+      if (!currentOptimalCut) return;
+      const sourceId = document.getElementById('sourceSelect').value;
+      const btn = document.getElementById('btnPrepareMirror');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch(`${API_BASE}/api/mirror/prepare`, {
+          method: 'POST',
+          headers: getMutationHeaders(),
+          body: JSON.stringify({
+            source_id: sourceId,
+            cut_nodes: currentOptimalCut.cut_nodes,
+            scenario_id: currentScenarioId
+          })
+        });
+        if (res.status === 401) {
+          showErrorBanner('401 Unauthorized — Valid Operator Token required to prepare mirror sandbox.');
+          return;
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ detail: 'Mirror preparation failed.' }));
+          showErrorBanner(errData.detail || 'Mirror preparation failed.');
+          return;
+        }
+        hideErrorBanner();
+        const proof = await res.json();
+        renderMirrorProof(proof);
+      } catch (err) {
+        console.error("Mirror prepare error:", err);
+        showErrorBanner('FalkorDB Engine Offline — Ensure FalkorDB (port 6379) and FastAPI backend are running.');
+      } finally {
+        if (btn) btn.disabled = false;
       }
     }
 
@@ -1542,17 +1713,32 @@
       if (!currentOptimalCut) return;
       const sourceId = document.getElementById('sourceSelect').value;
       try {
-        const res = await fetch('/api/contain', {
+        const res = await fetch(`${API_BASE}/api/contain`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getMutationHeaders(),
           body: JSON.stringify({
             source_id: sourceId,
             cut_nodes: currentOptimalCut.cut_nodes,
             blast_cost: currentOptimalCut.blast_cost,
-            scenario_id: currentScenarioId
+            scenario_id: currentScenarioId,
+            plan_fingerprint: currentOptimalCut.plan_fingerprint || null
           })
         });
-        if (!res.ok) throw new Error('Backend error');
+        if (res.status === 401) {
+          showErrorBanner('401 Unauthorized — Valid Operator Token required in toolbar to execute mutations.');
+          return;
+        }
+        if (res.status === 409) {
+          showErrorBanner('409 Conflict — Stale plan detected. Topology or costs changed since plan generation. Reloading state...');
+          await loadGraphState();
+          return;
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ detail: 'Containment commit failed.' }));
+          showErrorBanner(errData.detail || 'Containment commit failed.');
+          return;
+        }
+        hideErrorBanner();
         const rec = await res.json();
         document.getElementById('receiptContainer').innerHTML = `
           <div class="path-row" style="border-color:var(--safe-green);">
@@ -1564,29 +1750,52 @@
         await loadGraphState();
         switchTab('mirror');
       } catch (err) {
-        document.getElementById('errorBanner').style.display = 'block';
+        console.error("Authorize cut error:", err);
+        showErrorBanner('FalkorDB Engine Offline — Ensure FalkorDB (port 6379) and FastAPI backend are running.');
       }
     }
 
     async function injectBypass() {
       const sourceId = document.getElementById('sourceSelect').value;
       try {
-        const res = await fetch('/api/mutate/bypass', {
+        const res = await fetch(`${API_BASE}/api/mutate/bypass`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getMutationHeaders(),
           body: JSON.stringify({ source_id: sourceId, scenario_id: currentScenarioId })
         });
-        if (!res.ok) throw new Error('Backend error');
+        if (res.status === 401) {
+          showErrorBanner('401 Unauthorized — Valid Operator Token required in toolbar to inject bypass edge.');
+          return;
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ detail: 'Bypass injection failed.' }));
+          showErrorBanner(errData.detail || 'Bypass injection failed.');
+          return;
+        }
+        hideErrorBanner();
         await loadGraphState();
       } catch (err) {
-        document.getElementById('errorBanner').style.display = 'block';
+        console.error("Inject bypass error:", err);
+        showErrorBanner('FalkorDB Engine Offline — Ensure FalkorDB (port 6379) and FastAPI backend are running.');
       }
     }
 
     async function resetTopology() {
       try {
-        const res = await fetch(`/api/reset?scenario_id=${encodeURIComponent(currentScenarioId)}`, { method: 'POST' });
-        if (!res.ok) throw new Error('Backend error');
+        const res = await fetch(`${API_BASE}/api/reset?scenario_id=${encodeURIComponent(currentScenarioId)}`, {
+          method: 'POST',
+          headers: getMutationHeaders()
+        });
+        if (res.status === 401) {
+          showErrorBanner('401 Unauthorized — Valid Operator Token required in toolbar to reset scenario.');
+          return;
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ detail: 'Topology reset failed.' }));
+          showErrorBanner(errData.detail || 'Topology reset failed.');
+          return;
+        }
+        hideErrorBanner();
         document.getElementById('receiptContainer').innerHTML = `
           <p style="color:var(--body); font-size:12.5px; margin:0;">
             Click <strong>Apply Minimum Cut</strong> in the toolbar to isolate the verified cut-set in <code>${currentScenarioId}</code> and record a SHA-256 audit receipt.
@@ -1594,11 +1803,16 @@
         `;
         await loadGraphState();
       } catch (err) {
-        document.getElementById('errorBanner').style.display = 'block';
+        console.error("Reset topology error:", err);
+        showErrorBanner('FalkorDB Engine Offline — Ensure FalkorDB (port 6379) and FastAPI backend are running.');
       }
     }
 
-    window.addEventListener('DOMContentLoaded', loadGraphState);
+    window.addEventListener('DOMContentLoaded', () => {
+      loadGraphState();
+      checkEngineHealth();
+      setInterval(checkEngineHealth, 15000);
+    });
   </script>
 
 </body>
