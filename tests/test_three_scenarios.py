@@ -11,6 +11,7 @@ Validates Gate 6 requirements:
 """
 import pytest
 from fastapi.testclient import TestClient
+import backend.config as config
 from backend.main import app
 from backend.models import (
     SecurityTopologyManifest,
@@ -23,13 +24,18 @@ from backend.models import (
 )
 from backend.config import MAX_NODE_COUNT, MAX_EDGE_COUNT, PROD_GRAPH
 
+TEST_TOKEN = "tezcatl-test-operator-auth-2026"
+config.ADMIN_TOKEN = TEST_TOKEN
+config.REQUIRE_AUTH = True
+
 client = TestClient(app)
+AUTH_HEADERS = {"X-Admin-Token": TEST_TOKEN}
 
 
 def test_scenario_a_canonical_cicd():
     """Scenario A: Canonical WeMakeDevs baseline demonstration on prod_graph."""
     # Reset Scenario A to baseline
-    client.post("/api/reset?scenario_id=cicd-compromise")
+    client.post("/api/reset?scenario_id=cicd-compromise", headers=AUTH_HEADERS)
 
     # Fetch investigation state
     res = client.get("/api/state?scenario_id=cicd-compromise")
@@ -62,18 +68,25 @@ def test_scenario_a_canonical_cicd():
     assert opt["blast_cost"] == 5
     assert opt["complete_cut"] is True
 
-    # Verify mirror proof
-    assert data["mirror_proof"] is not None
-    assert data["mirror_proof"]["verified_safe"] is True
-    assert data["mirror_proof"]["remaining_paths"] == 0
+    # Verify shadow-graph sandbox modeling via POST /api/mirror/prepare
+    mirror_res = client.post("/api/mirror/prepare", json={
+        "source_id": "ci-runner-07",
+        "cut_nodes": opt["cut_nodes"],
+        "scenario_id": "cicd-compromise"
+    }, headers=AUTH_HEADERS)
+    assert mirror_res.status_code == 200
+    mirror_proof = mirror_res.json()
+    assert mirror_proof["verified_safe"] is True
+    assert mirror_proof["remaining_paths"] == 0
 
     # Commit containment
     contain_res = client.post("/api/contain", json={
         "source_id": "ci-runner-07",
         "cut_nodes": opt["cut_nodes"],
         "blast_cost": opt["blast_cost"],
-        "scenario_id": "cicd-compromise"
-    })
+        "scenario_id": "cicd-compromise",
+        "plan_fingerprint": opt["plan_fingerprint"],
+    }, headers=AUTH_HEADERS)
     assert contain_res.status_code == 200
     c_data = contain_res.json()
     assert c_data["pre_paths"] == 2
@@ -85,7 +98,7 @@ def test_scenario_a_canonical_cicd():
     assert post_state["active_path_count"] == 0
 
     # Reset back to pristine baseline
-    client.post("/api/reset?scenario_id=cicd-compromise")
+    client.post("/api/reset?scenario_id=cicd-compromise", headers=AUTH_HEADERS)
 
 
 def test_scenario_b_three_tier_app_no_threat_model():
@@ -127,7 +140,7 @@ def test_scenario_c_microservices_cycles_and_branches():
     - At least one directed cycle (order-processor <-> fraud-checker).
     - Deterministic solver recalculation based on actual scenario costs.
     """
-    client.post("/api/reset?scenario_id=microservices-alternate")
+    client.post("/api/reset?scenario_id=microservices-alternate", headers=AUTH_HEADERS)
 
     res = client.get("/api/state?scenario_id=microservices-alternate")
     assert res.status_code == 200
@@ -162,18 +175,25 @@ def test_scenario_c_microservices_cycles_and_branches():
     assert set(opt["cut_nodes"]) == {"telemetry-aggregator", "fraud-checker"}
     assert opt["blast_cost"] == 8
 
-    # Shadow-graph verification in scen_microservices_mirror
-    assert data["mirror_proof"] is not None
-    assert data["mirror_proof"]["verified_safe"] is True
-    assert data["mirror_proof"]["remaining_paths"] == 0
+    # Shadow-graph verification in scen_microservices_mirror via POST /api/mirror/prepare
+    m_res = client.post("/api/mirror/prepare", json={
+        "source_id": "edge-ingress",
+        "cut_nodes": opt["cut_nodes"],
+        "scenario_id": "microservices-alternate"
+    }, headers=AUTH_HEADERS)
+    assert m_res.status_code == 200
+    mirror_proof = m_res.json()
+    assert mirror_proof["verified_safe"] is True
+    assert mirror_proof["remaining_paths"] == 0
 
     # Commit containment on Scenario C
     contain_res = client.post("/api/contain", json={
         "source_id": "edge-ingress",
         "cut_nodes": opt["cut_nodes"],
         "blast_cost": opt["blast_cost"],
-        "scenario_id": "microservices-alternate"
-    })
+        "scenario_id": "microservices-alternate",
+        "plan_fingerprint": opt["plan_fingerprint"],
+    }, headers=AUTH_HEADERS)
     assert contain_res.status_code == 200
     assert contain_res.json()["post_paths"] == 0
 
@@ -182,7 +202,7 @@ def test_scenario_c_microservices_cycles_and_branches():
     assert post_state["active_path_count"] == 0
 
     # Reset Scenario C back
-    client.post("/api/reset?scenario_id=microservices-alternate")
+    client.post("/api/reset?scenario_id=microservices-alternate", headers=AUTH_HEADERS)
 
 
 def test_manifest_validation_rules():
@@ -237,19 +257,21 @@ def test_manifest_validation_rules():
 def test_scenario_isolation():
     """Verifies that mutations in Scenario C or B never affect Scenario A (prod_graph)."""
     # 1. Scenario A has 2 paths
-    client.post("/api/reset?scenario_id=cicd-compromise")
-    client.post("/api/reset?scenario_id=microservices-alternate")
+    client.post("/api/reset?scenario_id=cicd-compromise", headers=AUTH_HEADERS)
+    client.post("/api/reset?scenario_id=microservices-alternate", headers=AUTH_HEADERS)
 
     state_a = client.get("/api/state?scenario_id=cicd-compromise").json()
     assert state_a["active_path_count"] == 2
 
     # 2. Apply containment to Scenario C
+    opt_c = client.get("/api/state?scenario_id=microservices-alternate").json()["cut_solution"]["optimal"]
     client.post("/api/contain", json={
         "source_id": "edge-ingress",
         "cut_nodes": ["telemetry-aggregator", "fraud-checker"],
         "blast_cost": 8,
-        "scenario_id": "microservices-alternate"
-    })
+        "scenario_id": "microservices-alternate",
+        "plan_fingerprint": opt_c["plan_fingerprint"],
+    }, headers=AUTH_HEADERS)
     state_c = client.get("/api/state?scenario_id=microservices-alternate").json()
     assert state_c["active_path_count"] == 0
 
@@ -259,4 +281,4 @@ def test_scenario_isolation():
     assert state_a_after["topology"]["nodes"] == state_a["topology"]["nodes"]
 
     # Clean up
-    client.post("/api/reset?scenario_id=microservices-alternate")
+    client.post("/api/reset?scenario_id=microservices-alternate", headers=AUTH_HEADERS)

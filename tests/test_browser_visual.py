@@ -18,10 +18,13 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 BASE_URL = os.getenv("TEZCATL_URL", "http://127.0.0.1:8000")
+OPERATOR_TOKEN = os.getenv("TEZCATL_ADMIN_TOKEN", "tezcatl-demo-token-2026")
+AUTH_HEADERS = {"X-Admin-Token": OPERATOR_TOKEN}
 SCREENSHOTS_DIR = Path(__file__).resolve().parent.parent / "screenshots"
 SCREENSHOTS_DIR.mkdir(exist_ok=True)
 
 VIEWPORTS = [
+    {"name": "ultrawide_1920", "width": 1920, "height": 1080},
     {"name": "desktop_1440", "width": 1440, "height": 900},
     {"name": "laptop_1280", "width": 1280, "height": 800},
     {"name": "tablet_768", "width": 768, "height": 1024},
@@ -61,21 +64,65 @@ def test_responsive_hero_and_animated_flow():
             # Screenshot landing
             screenshot_path = SCREENSHOTS_DIR / f"landing_{vp['name']}.png"
             page.screenshot(path=str(screenshot_path))
-            print(f"[PASS] Viewport {vp['name']} verified: scrollWidth={scroll_width}, innerWidth={inner_width}")
+
+            # Open workspace console and test full-width responsiveness & absence of offline banner
+            cta.click()
+            page.wait_for_selector("#workspaceOverlay.is-open", state="visible")
+            page.wait_for_selector("#svgContainer svg", state="visible")
+            page.wait_for_timeout(400)
+
+            # Assert error banner is NOT visible when engine is online
+            error_banner = page.locator("#errorBanner")
+            assert not error_banner.is_visible(), f"Error banner unexpectedly visible at {vp['name']}"
+
+            # Verify no horizontal scrollbar on body while overlay is open
+            sheet_scroll_width = page.evaluate("document.body.scrollWidth")
+            assert sheet_scroll_width <= inner_width + 2, f"Console horizontal overflow at {vp['name']}: {sheet_scroll_width} > {inner_width}"
+
+            # Screenshot topology console view
+            page.screenshot(path=str(SCREENSHOTS_DIR / f"console_topology_{vp['name']}.png"))
+
+            # Switch to shadow graph (mirror) tab to inspect Shadow-Graph Sandbox Verification and SHA-256 Audit Log
+            page.locator("button[data-tab='mirror']").click()
+            page.wait_for_selector("#panel-mirror.active", state="visible")
+            page.wait_for_timeout(300)
+
+            # Verify verification layout grid behavior
+            v_layout = page.locator(".verification-layout")
+            assert v_layout.is_visible(), f"Verification layout not visible at {vp['name']}"
+            grid_cols = v_layout.evaluate("el => window.getComputedStyle(el).gridTemplateColumns")
+
+            if vp["width"] > 1040:
+                # Desktop/ultrawide viewports must have two distinct column tracks
+                col_parts = [c for c in grid_cols.split() if c]
+                assert len(col_parts) >= 2, f"Expected 2-column grid at {vp['name']}, got {grid_cols}"
+            else:
+                # Tablet and mobile viewports collapse to 1 column
+                col_parts = [c for c in grid_cols.split() if c]
+                assert len(col_parts) == 1, f"Expected 1-column collapsed grid at {vp['name']}, got {grid_cols}"
+
+            # Screenshot verification layout view
+            page.screenshot(path=str(SCREENSHOTS_DIR / f"console_verification_{vp['name']}.png"))
+
+            print(f"[PASS] Viewport {vp['name']} verified: scrollWidth={scroll_width}, cols={grid_cols}, errorBanner=hidden")
 
             context.close()
 
         # 2. Test Interactive Workspace, Scenarios A, B, C & Animated SVG Flows
         ctx = browser.new_context(viewport={"width": 1440, "height": 900})
         page = ctx.new_page()
-        page.request.post(f"{BASE_URL}/api/reset?scenario_id=cicd-compromise")
+        page.request.post(f"{BASE_URL}/api/reset?scenario_id=cicd-compromise", headers=AUTH_HEADERS)
         page.goto(BASE_URL, wait_until="networkidle")
 
         # Click Open Graph Console button
         page.locator(".brand__cta").click()
         page.wait_for_selector("#workspaceOverlay.is-open", state="visible")
         page.wait_for_selector("#svgContainer svg", state="visible")
-        page.wait_for_timeout(600)
+        page.wait_for_timeout(400)
+
+        # Enter operator token for mutations
+        page.locator("#operatorTokenInput").fill(OPERATOR_TOKEN)
+        page.wait_for_timeout(200)
 
         # --- SCENARIO A VERIFICATION ---
         active_edges = page.locator(".edge-active")

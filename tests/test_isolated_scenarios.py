@@ -177,6 +177,10 @@ def test_scenario_d_new_nodes_and_branches(test_engine):
     assert coords["ci-runner-07"]["x"] <= 100
     assert coords["prod-signing-key"]["x"] >= 650
 
+    # Clean up test graphs to baseline
+    test_engine.seed_topology(TEST_PROD_GRAPH)
+    test_engine.clone_prod_to_mirror()
+
 
 def simulate_layout(nodes, edges, paths, source_id):
     """Python verification replica of computeDynamicLayout to mathematically prove zero overlap."""

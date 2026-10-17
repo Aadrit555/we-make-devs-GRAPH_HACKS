@@ -203,22 +203,24 @@ python tests/test_browser_visual.py
 
 ---
 
-## Test Suite Results (11/11 Passed)
+## Test Suite Results (13/13 Passed)
 
 ```text
 ============================= test session starts =============================
-tests/test_browser_visual.py::test_responsive_hero_and_animated_flow PASSED [  9%]
-tests/test_isolated_scenarios.py::test_scenario_a_baseline_topology PASSED [ 18%]
-tests/test_isolated_scenarios.py::test_scenario_b_bypass_architecture PASSED [ 27%]
-tests/test_isolated_scenarios.py::test_scenario_c_contained_topology PASSED [ 36%]
-tests/test_isolated_scenarios.py::test_scenario_d_new_nodes_and_branches PASSED [ 45%]
-tests/test_tezcatl.py::test_end_to_end_falkordb_suite PASSED             [ 54%]
-tests/test_three_scenarios.py::test_scenario_a_canonical_cicd PASSED     [ 63%]
-tests/test_three_scenarios.py::test_scenario_b_three_tier_app_no_threat_model PASSED [ 72%]
-tests/test_three_scenarios.py::test_scenario_c_microservices_cycles_and_branches PASSED [ 81%]
-tests/test_three_scenarios.py::test_manifest_validation_rules PASSED     [ 90%]
-tests/test_three_scenarios.py::test_scenario_isolation PASSED            [100%]
-============================= 11 passed in 38.13s =============================
+tests/test_tezcatl.py::test_unauthenticated_mutations_rejected_401 PASSED [  7%]
+tests/test_tezcatl.py::test_stale_plan_fingerprint_rejected_409 PASSED   [ 15%]
+tests/test_tezcatl.py::test_end_to_end_falkordb_suite PASSED             [ 23%]
+tests/test_three_scenarios.py::test_scenario_a_canonical_cicd PASSED     [ 30%]
+tests/test_three_scenarios.py::test_scenario_b_three_tier_app_no_threat_model PASSED [ 38%]
+tests/test_three_scenarios.py::test_scenario_c_microservices_cycles_and_branches PASSED [ 46%]
+tests/test_three_scenarios.py::test_manifest_validation_rules PASSED     [ 53%]
+tests/test_three_scenarios.py::test_scenario_isolation PASSED            [ 61%]
+tests/test_isolated_scenarios.py::test_scenario_a_baseline_topology PASSED [ 69%]
+tests/test_isolated_scenarios.py::test_scenario_b_bypass_architecture PASSED [ 76%]
+tests/test_isolated_scenarios.py::test_scenario_c_contained_topology PASSED [ 84%]
+tests/test_isolated_scenarios.py::test_scenario_d_new_nodes_and_branches PASSED [ 92%]
+tests/test_browser_visual.py::test_responsive_hero_and_animated_flow PASSED [100%]
+============================= 13 passed in 43.65s =============================
 ```
 
 ---
