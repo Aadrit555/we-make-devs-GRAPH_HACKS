@@ -39,7 +39,10 @@ def solve_minimum_cut_set(
             if nid not in min_hops or idx < min_hops[nid]:
                 min_hops[nid] = idx
 
-    for r in range(1, min(4, len(cand_map) + 1)):
+    max_eval_depth = len(cand_map) if len(cand_map) <= 8 else 4
+    max_r = min(max_eval_depth, len(cand_map))
+
+    for r in range(1, max_r + 1):
         for combo in combinations(cand_map.keys(), r):
             combo_set = set(combo)
             severed_count = sum(1 for p_set in interior_sets if p_set & combo_set)
@@ -59,5 +62,16 @@ def solve_minimum_cut_set(
 
     evaluated.sort(key=lambda x: (not x["complete_cut"], x["blast_cost"], len(x["cut_nodes"]), x["proximity"]))
     optimal = next((item for item in evaluated if item["complete_cut"]), None)
-    return {"optimal": optimal, "evaluated": evaluated[:8]}
+
+    is_exhaustive = max_r == len(cand_map)
+    optimality_scope = "GLOBAL_EXHAUSTIVE" if is_exhaustive else f"BOUNDED_DEPTH_{max_r}"
+
+    return {
+        "optimal": optimal,
+        "evaluated": evaluated[:8],
+        "candidate_count": len(cand_map),
+        "search_depth_evaluated": max_r,
+        "is_exhaustive": is_exhaustive,
+        "optimality_scope": optimality_scope,
+    }
 

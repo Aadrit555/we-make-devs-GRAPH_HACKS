@@ -2,26 +2,59 @@
 TEZCATL — Graph-Native Breach Containment Agent on FalkorDB
 Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
+from contextlib import asynccontextmanager
+from typing import Optional
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Security, Depends, status
+from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from backend.config import ADMIN_TOKEN, REQUIRE_AUTH
 from backend.models import CutActionRequest, SourceRequest
 from backend.graph_client import TezcatlGraphEngine
 
-app = FastAPI(title="TEZCATL — FalkorDB Breach Containment Engine")
-engine = TezcatlGraphEngine()
+engine = TezcatlGraphEngine(auto_connect=False)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Enforce startup retries with explicit failure
+    engine.connect_with_retries()
+    engine.ensure_seeded()
+    yield
+
+
+app = FastAPI(
+    title="TEZCATL — FalkorDB Breach Containment Engine",
+    lifespan=lifespan,
+)
+
+api_key_header = APIKeyHeader(name="X-Tezcatl-Auth", auto_error=False)
+
+
+def verify_admin_auth(api_key: Optional[str] = Security(api_key_header)) -> bool:
+    """Protect state-changing endpoints on public services."""
+    if not REQUIRE_AUTH:
+        return True
+    if api_key and api_key.strip() == ADMIN_TOKEN:
+        return True
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Unauthorized: State-changing operations require valid X-Tezcatl-Auth token.",
+    )
 
 
 @app.get("/api/health")
 def get_health():
     """Verify live FalkorDB connectivity and graph bootstrap status."""
-    return {
-        "status": "HEALTHY",
-        "service": "TEZCATL Graph Engine",
-        "prod_graph": engine.prod_name,
-        "mirror_graph": engine.mirror_name,
-    }
+    try:
+        health_info = engine.check_health()
+        return health_info
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"FalkorDB service unavailable: {str(e)}",
+        )
 
 
 @app.get("/api/state")
@@ -51,17 +84,26 @@ def get_investigation_state(source_id: str = "ci-runner-07"):
     }
 
 
-@app.post("/api/contain")
+@app.post("/api/contain", dependencies=[Depends(verify_admin_auth)])
 def execute_containment(req: CutActionRequest):
-    return engine.commit_containment(req.source_id, req.cut_nodes, req.blast_cost)
+    try:
+        return engine.commit_containment(
+            source_id=req.source_id,
+            caller_cut_nodes=req.cut_nodes,
+            caller_blast_cost=req.blast_cost,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+    except RuntimeError as re:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(re))
 
 
-@app.post("/api/mutate/bypass")
+@app.post("/api/mutate/bypass", dependencies=[Depends(verify_admin_auth)])
 def mutate_bypass(req: SourceRequest):
     return engine.inject_bypass_edge(req.source_id)
 
 
-@app.post("/api/reset")
+@app.post("/api/reset", dependencies=[Depends(verify_admin_auth)])
 def reset_graphs():
     engine.seed_topology("prod_graph")
     engine.clone_prod_to_mirror()

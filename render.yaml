@@ -1,0 +1,46 @@
+# Render Infrastructure as Code Blueprint for TEZCATL
+# Region: Singapore (singapore)
+# Services: Private FalkorDB (persistent disk) + Public Dockerized FastAPI/UI
+
+services:
+  - type: pserv
+    name: falkordb
+    env: image
+    image:
+      url: falkordb/falkordb:v4.4.1
+    region: singapore
+    plan: starter
+    disk:
+      name: falkordb-data
+      mountPath: /var/lib/falkordb/data
+      sizeGB: 10
+
+  - type: web
+    name: tezcatl
+    env: docker
+    dockerfilePath: ./Dockerfile
+    region: singapore
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: FALKORDB_HOST
+        fromService:
+          type: pserv
+          name: falkordb
+          property: host
+      - key: FALKORDB_PORT
+        value: "6379"
+      - key: TEZCATL_PROD_GRAPH
+        value: prod_graph
+      - key: TEZCATL_MIRROR_GRAPH
+        value: tezcatl_mirror
+      - key: TEZCATL_ADMIN_TOKEN
+        value: tezcatl-demo-auth-2026
+      - key: TEZCATL_REQUIRE_AUTH
+        value: "true"
+      - key: TEZCATL_DEMO_MODE
+        value: "true"
+      - key: DB_STARTUP_RETRIES
+        value: "10"
+      - key: DB_RETRY_INTERVAL
+        value: "2"

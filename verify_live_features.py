@@ -4,8 +4,10 @@ Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
 from fastapi.testclient import TestClient
 from backend.main import app
+from backend.config import ADMIN_TOKEN
 
 client = TestClient(app)
+AUTH_HEADERS = {"X-Tezcatl-Auth": ADMIN_TOKEN}
 
 
 def run_verification():
@@ -14,7 +16,7 @@ def run_verification():
     print("=" * 78)
 
     # 1. Reset & Verify Topology
-    r_reset = client.post("/api/reset")
+    r_reset = client.post("/api/reset", headers=AUTH_HEADERS)
     assert r_reset.status_code == 200
     s1 = client.get("/api/state?source_id=ci-runner-07").json()
     assert len(s1["topology"]["nodes"]) == 8, "Expected 8 :Entity nodes in FalkorDB"
@@ -43,7 +45,7 @@ def run_verification():
     print(f"[PASS] Feature 4 (Shadow Mirror): Cut {opt['cut_nodes']} (Cost=5) -> 0 paths in tezcatl_mirror while prod_graph has 2")
 
     # 5. Live Bypass Edge Injection (EV-999)
-    client.post("/api/mutate/bypass", json={"source_id": "ci-runner-07"})
+    client.post("/api/mutate/bypass", json={"source_id": "ci-runner-07"}, headers=AUTH_HEADERS)
     s_bypass = client.get("/api/state?source_id=ci-runner-07").json()
     assert s_bypass["active_path_count"] == 3, "Expected 3 paths after bypass injection"
     opt_bypass = s_bypass["cut_solution"]["optimal"]
@@ -53,10 +55,11 @@ def run_verification():
     print(f"[PASS] Feature 5 (Live Bypass EV-999): Paths jumped 2->3 | Solver shifted cut to {opt_bypass['cut_nodes']} (Cost=14)")
 
     # 6. Production Containment Commit & SHA-256 Receipt
-    client.post("/api/reset")
+    client.post("/api/reset", headers=AUTH_HEADERS)
     c_res = client.post(
         "/api/contain",
-        json={"source_id": "ci-runner-07", "cut_nodes": ["tok-deploy-alpha", "tok-artifact-rw"], "blast_cost": 5},
+        json={"source_id": "ci-runner-07"},
+        headers=AUTH_HEADERS,
     ).json()
     assert c_res["pre_paths"] == 2
     assert c_res["post_paths"] == 0

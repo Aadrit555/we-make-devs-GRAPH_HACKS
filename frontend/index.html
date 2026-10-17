@@ -988,13 +988,18 @@
       }
     }
 
+    const AUTH_TOKEN = 'tezcatl-demo-auth-2026';
+
     async function authorizeCut() {
       if (!currentOptimalCut) return;
       const sourceId = document.getElementById('sourceSelect').value;
       try {
         const res = await fetch('/api/contain', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tezcatl-Auth': AUTH_TOKEN
+          },
           body: JSON.stringify({
             source_id: sourceId,
             cut_nodes: currentOptimalCut.cut_nodes,
@@ -1022,7 +1027,10 @@
       try {
         const res = await fetch('/api/mutate/bypass', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tezcatl-Auth': AUTH_TOKEN
+          },
           body: JSON.stringify({ source_id: sourceId })
         });
         if (!res.ok) throw new Error('Backend error');
@@ -1034,7 +1042,12 @@
 
     async function resetTopology() {
       try {
-        const res = await fetch('/api/reset', { method: 'POST' });
+        const res = await fetch('/api/reset', {
+          method: 'POST',
+          headers: {
+            'X-Tezcatl-Auth': AUTH_TOKEN
+          }
+        });
         if (!res.ok) throw new Error('Backend error');
         document.getElementById('receiptContainer').innerHTML = `
           <p style="color:var(--body); font-size:12.5px; margin:0;">
