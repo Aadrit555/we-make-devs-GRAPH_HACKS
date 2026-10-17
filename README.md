@@ -1,17 +1,16 @@
 <p align="center">
-  <img src="assets/tezcatl_banner.png" alt="TEZCATL Graph Containment Engine" width="600" />
+  <img src="frontend/assets/tezcatl.jpg" alt="TEZCATL Graph Containment Engine" width="120" style="border-radius: 50%;" />
 </p>
 
 # TEZCATL — Graph-Native Breach Containment on FalkorDB
 
+[![Live Deployment](https://img.shields.io/badge/Live%20Target-tezcatl--engine.onrender.com-blueviolet)](https://tezcatl-engine.onrender.com)
 [![FalkorDB](https://img.shields.io/badge/FalkorDB-Multi--Graph-orange)](https://www.falkordb.com/)
 [![Track 01](https://img.shields.io/badge/Track--01-Agents%20That%20Act%20on%20Connected%20Data-purple)](#)
 [![Author](https://img.shields.io/badge/Author-Aadrit555-blue)](https://github.com/Aadrit555)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![Pydantic](https://img.shields.io/badge/Validation-Pydantic%20v2-green)](https://pydantic.dev/)
 [![FastAPI](https://img.shields.io/badge/Framework-FastAPI%20Production-teal)](https://fastapi.tiangolo.com/)
-[![Protocol](https://img.shields.io/badge/MCP-JSON--RPC%202.0-blue)](#)
-[![Tests](https://img.shields.io/badge/Tests-50%2F50%20Passing-brightgreen)](tests/)
 [![Zero External APIs](https://img.shields.io/badge/Keys-Zero%20External%20APIs-success)](#)
 
 > **TEZCATL** is an incident containment engine submitted under **Track 01: Agents That Act on Connected Data** (WeMakeDevs & FalkorDB Graph Hacks). It isolates multi-hop cloud security breaches using FalkorDB graph traversals, native graph centrality algorithms (`algo.betweenness`), dynamic service impact analysis, and isolated shadow-graph sandbox verification (`tezcatl_mirror`).
@@ -201,7 +200,7 @@ source venv/bin/activate  # On Windows: .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
 # 3. Seed Topology & Run Pytest Suite
-python seed.py
+python -m backend.seed
 pytest -v
 
 # 4. Run Live Feature Audit
@@ -245,30 +244,27 @@ Total Audit Pipeline Time: 94.41 ms
 
 ```text
 we-make-devs-GRAPH_HACKS/
-├── config.py                 # Typed configuration and FalkorDB connection settings
-├── models.py                 # Strict Pydantic domain models & JSON-RPC 2.0 MCP schemas
-├── seed.py                   # Deterministic breach topology & dependency tree seed script
-├── graph_client.py           # Parameterized OpenCypher client, telemetry profiler, shadow cloner
-├── solver.py                 # Deterministic minimum-cost vertex-cut combinatorial engine
-├── agent.py                  # Track 01 autonomous agent orchestrator
-├── mcp_server.py             # First-party JSON-RPC 2.0 Model Context Protocol tool server
-├── app.py                    # Production FastAPI application & REST/MCP endpoints
-├── verify_live_features.py   # Live FalkorDB benchmark & feature audit script
-├── SUBMISSION_GUIDE.md       # WeMakeDevs & FalkorDB portal answers & demo script
 ├── backend/
-│   └── main.py               # Uvicorn entry point
+│   ├── __init__.py           # Package marker
+│   ├── config.py             # FalkorDB host/port environment bindings
+│   ├── models.py             # Strict Pydantic v2 schemas
+│   ├── seed.py               # Idempotent database bootstrap for entities & services
+│   ├── graph_client.py       # Parameterized OpenCypher client, shadow cloner, telemetry
+│   ├── solver.py             # Deterministic minimum-cost vertex-cut combinatorial engine
+│   └── main.py               # Production FastAPI application & REST endpoints
 ├── frontend/
-│   └── index.html            # Minimal Meadow landing view with on-demand interactive console
-├── assets/
-│   └── tezcatl_banner.png    # Project banner graphic
-├── Dockerfile                # Production container definition
-├── docker-compose.yml        # Multi-container orchestration stack
+│   ├── index.html            # Minimal Meadow landing view with on-demand interactive console
+│   └── assets/
+│       └── tezcatl.jpg       # High-res Aztec obsidian crest brand mark
+├── tests/
+│   └── test_tezcatl.py       # Live FalkorDB test suite (all 6 features verified)
+├── Dockerfile                # Production container deployment for Render
+├── docker-compose.yml        # Local orchestrated spin-up
 ├── requirements.txt          # Pure first-party dependencies
+├── verify_live_features.py   # Live FalkorDB benchmark & feature audit script
 ├── pytest.ini                # Pytest configuration
-└── tests/
-    ├── test_tezcatl.py       # Core unit, agent, MCP, and API test suite (35 tests)
-    ├── test_graph_engine_integration.py # Live FalkorDB client integration tests (8 tests)
-    └── test_seed_integration.py         # Seed topology integrity tests (7 tests)
+├── README.md                 # Complete hackathon submission documentation
+└── SUBMISSION_GUIDE.md       # WeMakeDevs & FalkorDB portal answers & demo script
 ```
 
 ---

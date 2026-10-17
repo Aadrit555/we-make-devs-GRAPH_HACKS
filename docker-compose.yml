@@ -26,8 +26,8 @@ services:
       - FALKORDB_GRAPH=prod_graph
       - TEZCATL_PROD_GRAPH=prod_graph
       - TEZCATL_MIRROR_GRAPH=tezcatl_mirror
-      - TEZCATL_SOURCE_ID=ci_runner
-      - TEZCATL_TARGET_ID=signing_key
+      - TEZCATL_SOURCE_ID=ci-runner-07
+      - TEZCATL_TARGET_ID=prod-signing-key
       - TEZCATL_MAX_HOPS=8
     depends_on:
       falkordb:

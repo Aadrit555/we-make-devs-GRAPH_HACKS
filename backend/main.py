@@ -6,21 +6,22 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from backend.models import CutActionRequest, SourceRequest
 from backend.graph_client import TezcatlGraphEngine
 
 app = FastAPI(title="TEZCATL — FalkorDB Breach Containment Engine")
 engine = TezcatlGraphEngine()
 
 
-class CutActionRequest(BaseModel):
-    source_id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]{1,64}$")
-    cut_nodes: list[str]
-    blast_cost: int = 0
-
-
-class SourceRequest(BaseModel):
-    source_id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]{1,64}$")
+@app.get("/api/health")
+def get_health():
+    """Verify live FalkorDB connectivity and graph bootstrap status."""
+    return {
+        "status": "HEALTHY",
+        "service": "TEZCATL Graph Engine",
+        "prod_graph": engine.prod_name,
+        "mirror_graph": engine.mirror_name,
+    }
 
 
 @app.get("/api/state")
@@ -67,7 +68,13 @@ def reset_graphs():
     return {"status": "reset_complete"}
 
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+FRONTEND_DIR = ROOT_DIR / "frontend"
+ASSETS_DIR = ROOT_DIR / "assets"
+
+if ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
+
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
