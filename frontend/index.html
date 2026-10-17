@@ -982,8 +982,8 @@
         </div>
 
         <div class="toolbar-right" style="display:flex; align-items:center; gap:8px;">
-          <input type="password" id="operatorTokenInput" placeholder="Operator Token"
-            title="TEZCATL Operator Auth Token" class="select-clean"
+          <input type="password" id="operatorTokenInput" placeholder="Operator Token" value="tezcatl-demo-token-2026"
+            title="TEZCATL Operator Auth Token (Default: tezcatl-demo-token-2026)" class="select-clean"
             style="width:130px; font-size:11px; padding:4px 8px; border:1px solid #cbd5e1; border-radius:4px;"
             oninput="updateOperatorToken(this.value)" autocomplete="off" />
           <button id="btnBypass" class="btn-sheet" onclick="injectBypass()">+ Inject Bypass Edge</button>
@@ -1108,7 +1108,7 @@
 
     let currentOptimalCut = null;
     let currentScenarioId = 'cicd-compromise';
-    let memoryOperatorToken = '';
+    let memoryOperatorToken = 'tezcatl-demo-token-2026';
 
     function updateOperatorToken(val) {
       memoryOperatorToken = (val || '').trim();
@@ -1809,6 +1809,10 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      const tokenInput = document.getElementById('operatorTokenInput');
+      if (tokenInput && !tokenInput.value) {
+        tokenInput.value = memoryOperatorToken;
+      }
       loadGraphState();
       checkEngineHealth();
       setInterval(checkEngineHealth, 15000);
