@@ -27,64 +27,89 @@
 If FalkorDB is removed from TEZCATL, the product cannot function:
 1. **Multi-Hop Traversal Collapses:** Identifying lateral movement trajectories requires evaluating variable-length directed paths (`*1..8`). In relational SQL, this demands recursive common table expressions (CTEs) or deep nested self-joins that collapse as topological depth grows.
 2. **Vector RAG Cannot Reason Over Reachability:** Embeddings compress semantic proximity, not topological connectivity or directional permissions. A vector database cannot compute whether severing an intermediate token cuts 100% of reachability to crown jewels.
-3. **Native Betweenness Centrality Disappears:** TEZCATL executes `algo.betweenness` directly inside FalkorDB to locate structural choke points across 8 entity nodes in under 3 milliseconds.
+3. **Native Betweenness Centrality Disappears:** TEZCATL executes `algo.betweenness` directly inside FalkorDB to locate structural choke points across entity nodes in under 3 milliseconds.
 4. **Service Impact Blast Radius Is a Reverse Graph Traversal:** Computing business disruption is not a static lookup table—it executes dynamic multi-hop reverse dependency traversals (`(s:Service)-[:DEPENDS_ON*1..4]->(e:Entity)`) to sum real revenue impact scores.
-5. **No Simulation Allowed:** The frontend contains zero mock arrays or simulated state. If FalkorDB is offline, the interface displays an explicit engine connection error banner.
+5. **Multi-Scenario Graph Isolation:** Dynamic scenarios reside in strictly isolated server-controlled FalkorDB graphs (e.g. `prod_graph`, `scen_three_tier_prod`, `scen_microservices_prod`), preventing data corruption or test pollution.
+6. **No Simulation Allowed:** The frontend contains zero mock arrays or simulated state. If FalkorDB is offline, the interface displays an explicit engine connection error banner.
 
 ---
 
-## Graph Data Model & Schema
+## 3 Distinct Verified Scenarios
 
-TEZCATL runs across two isolated graphs inside FalkorDB: `prod_graph` (live production infrastructure) and `tezcatl_mirror` (shadow-graph sandbox for pre-commit verification).
+TEZCATL evaluates real security topologies stored directly in isolated FalkorDB graphs:
 
-```mermaid
-graph LR
-    subgraph ATTACK_STEP ["Lateral Attack Trajectories (:ATTACK_STEP)"]
-        CR["ci-runner-07<br/>(Compromised Ingress)"] -->|"E-001"| TDA["tok-deploy-alpha<br/>(Deploy Token)"]
-        CR -->|"E-002"| TAR["tok-artifact-rw<br/>(Artifact Token)"]
-        SW["staging-worker-02"] -->|"E-003"| TAR
-        TDA -->|"E-004"| RCD["role-cloud-deployer<br/>(Cloud IAM Role)"]
-        TAR -->|"E-005"| PRC["pkg-registry-core<br/>(Package Registry)"]
-        RCD -->|"E-006"| RC["release-controller<br/>(Production Choke Point)"]
-        PRC -->|"E-007"| RC
-        RC -->|"E-008"| PSK["prod-signing-key<br/>(Crown Jewel)"]
-    end
+| Scenario | Graph Name | Description | Threat Model | Active Paths | Optimal Cut | Blast Cost |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Scenario A** | `prod_graph` / `tezcatl_mirror` | **CI/CD Pipeline Compromise (Canonical Demo)**: Ingress at `ci-runner-07`, dual token routes, `release-controller` choke point, `prod-signing-key` crown jewel. | **Active** | 2 paths | `{tok-deploy-alpha, tok-artifact-rw}` | **5** (vs 14) |
+| **Scenario B** | `scen_three_tier_prod` | **Three-Tier Web Application (Architecture Only)**: Frontend, API Gateway, Order Worker, Redis Cache, Postgres Primary DB with `CALLS`, `READS_FROM`, `WRITES_TO`, `DEPENDS_ON`. | **None** (Architecture Mode) | 0 paths | `None` (Solver inactive) | **0** |
+| **Scenario C** | `scen_microservices_prod` | **Microservices Branching & Cycle Topology**: Ingress at `edge-ingress`, feedback cycle between `order-processor` and `fraud-checker`, telemetry branch, `auth-broker` bottleneck, `vault-secrets`. | **Active** | 2 paths | `{telemetry-aggregator, fraud-checker}` | **8** (vs 9 or 14) |
 
-    subgraph DEPENDS_ON ["Business Service Dependencies (:DEPENDS_ON)"]
-        CAPI["checkout-api<br/>(Score: 5)"] -.-> RC
-        RT["release-train<br/>(Score: 5)"] -.-> RC
-        RT -.-> RCD
-        OGW["oidc-gateway<br/>(Score: 4)"] -.-> RC
-        SP["staging-pipeline<br/>(Score: 2)"] -.-> TDA
-        AI["artifact-indexer<br/>(Score: 3)"] -.-> TAR
-        AI -.-> PRC
-    end
+---
+
+## Normalized Security-Topology Manifest & Relationship Semantics
+
+Alternative security topologies are validated using strict Pydantic v2 schemas:
+
+```json
+{
+  "schema_version": 1,
+  "project": {
+    "id": "microservices-alternate",
+    "name": "Scenario C: Microservices Branching & Cycle Topology"
+  },
+  "nodes": [
+    {"id": "edge-ingress", "name": "Edge API Ingress", "kind": "gateway", "criticality": "critical", "status": "active"},
+    {"id": "order-processor", "name": "Order Processor", "kind": "service", "criticality": "high", "status": "active"},
+    {"id": "fraud-checker", "name": "Fraud Verification Service", "kind": "service", "criticality": "medium", "status": "active"},
+    {"id": "telemetry-aggregator", "name": "Telemetry Aggregator", "kind": "service", "criticality": "low", "status": "active"},
+    {"id": "auth-broker", "name": "Internal Auth Broker", "kind": "service", "criticality": "high", "status": "active"},
+    {"id": "vault-secrets", "name": "HashiCorp Secrets Vault", "kind": "database", "criticality": "crown_jewel", "status": "active"}
+  ],
+  "edges": [
+    {"id": "e1", "source": "edge-ingress", "target": "order-processor", "type": "ATTACK_STEP"},
+    {"id": "e2", "source": "order-processor", "target": "fraud-checker", "type": "ATTACK_STEP"},
+    {"id": "e3", "source": "fraud-checker", "target": "order-processor", "type": "CALLS"},
+    {"id": "e4", "source": "fraud-checker", "target": "auth-broker", "type": "ATTACK_STEP"},
+    {"id": "e5", "source": "edge-ingress", "target": "telemetry-aggregator", "type": "ATTACK_STEP"},
+    {"id": "e6", "source": "telemetry-aggregator", "target": "auth-broker", "type": "ATTACK_STEP"},
+    {"id": "e7", "source": "auth-broker", "target": "vault-secrets", "type": "ATTACK_STEP"}
+  ],
+  "scenario": {
+    "source_id": "edge-ingress",
+    "target_ids": ["vault-secrets"],
+    "allowed_traversal_types": ["ATTACK_STEP"],
+    "max_depth": 8,
+    "eligible_mitigations": [
+      {"node_id": "telemetry-aggregator", "blast_cost": 2, "impact_justification": "Temporary loss of application metrics"},
+      {"node_id": "fraud-checker", "blast_cost": 6, "impact_justification": "Fraud checks queued for manual review"},
+      {"node_id": "auth-broker", "blast_cost": 9, "impact_justification": "Central auth gateway outage"},
+      {"node_id": "order-processor", "blast_cost": 14, "impact_justification": "Primary checkout pipeline blocked"}
+    ]
+  }
+}
 ```
 
-### Node Schema
+### Supported Relationship Types Allowlist
+- `CALLS`: Service or RPC invocation (architecture relationship).
+- `DEPENDS_ON`: Operational dependency for reverse blast radius calculation.
+- `READS_FROM`: Data store read access.
+- `WRITES_TO`: Data store write access.
+- `ASSUMES_ROLE`: IAM STS role delegation.
+- `DEPLOYS_TO`: Infrastructure continuous deployment link.
+- `ATTACK_STEP`: Explicit verified lateral attack movement vector.
 
-| Label | Canonical ID | Kind | Criticality | Raw Cost | Revenue Impact Score | Description |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `:Entity` | `ci-runner-07` | `workload` | `high` | 10 | 0 | Compromised CI build runner |
-| `:Entity` | `staging-worker-02` | `workload` | `medium` | 8 | 0 | Secondary staging build worker |
-| `:Entity` | `tok-deploy-alpha` | `credential` | `high` | 2 | 0 | Deploy credential token |
-| `:Entity` | `tok-artifact-rw` | `credential` | `high` | 3 | 0 | Artifact registry read-write token |
-| `:Entity` | `role-cloud-deployer` | `iam_role` | `high` | 6 | 0 | Cloud deployer IAM role |
-| `:Entity` | `pkg-registry-core` | `registry` | `high` | 7 | 0 | Core package repository |
-| `:Entity` | `release-controller` | `service` | `critical` | 10 | 0 | Central release orchestrator |
-| `:Entity` | `prod-signing-key` | `key` | `crown_jewel`| 9999 | 0 | Production release signing key |
-| `:Service` | `checkout-api` | `service` | `critical` | 10 | 5 | Global checkout transaction API |
-| `:Service` | `release-train` | `service` | `critical` | 10 | 5 | Zero-downtime release pipeline |
-| `:Service` | `oidc-gateway` | `service` | `high` | 8 | 4 | Edge authentication gateway |
-| `:Service` | `staging-pipeline` | `service` | `medium` | 4 | 2 | Staging build validation pipeline |
-| `:Service` | `artifact-indexer` | `service` | `medium` | 5 | 3 | Artifact catalog indexer worker |
+> [!NOTE]
+> **Relationship Semantics:** Only explicit `ATTACK_STEP` relationships are traversed by the containment engine. Architecture edges (`CALLS`, `DEPENDS_ON`, `READS_FROM`, `WRITES_TO`) are rendered in neutral slate with distinct arrowheads and cannot be traversed as attacker movement. If a topology is loaded without an explicit threat model (Scenario B), TEZCATL renders the architecture in neutral mode and displays an explicit notice: *"Architecture topology loaded. Security analysis requires an explicit threat model."*
 
-### Relationship Schema
+---
 
-| Type | Direction | Properties | Semantic Purpose |
-| :--- | :--- | :--- | :--- |
-| `:ATTACK_STEP` | `(:Entity)->(:Entity)` | `active: bool`, `mechanism: string`, `evidence_id: string` | Directional privilege escalation or credential access |
-| `:DEPENDS_ON` | `(:Service)->(:Entity)` | `purpose: string` | Reverse operational dependence for dynamic blast radius |
+## Animated Flow & Dynamic SVG Graph Layout
+
+- **Directional Animated Flows:** Active attack vectors are visualized with moving dashed crimson strokes (`animation: attackFlow 1.25s linear infinite` with `stroke-dasharray: 6 4` and `stroke-dashoffset: 20` to `0`).
+- **Ray-to-Rectangle Boundary Clipping (`clipRayToRect`):** Computes exact intersection points of node boundary rectangles, ensuring arrowheads sit flush at any angle.
+- **Cycle Handling:** Directed feedback cycles are detected during BFS leveling to prevent layer drift, and rendered as curved feedback loops without visual overlap.
+- **Accessibility:** Full support for `@media (prefers-reduced-motion: reduce)` which pauses animations while preserving directional markers.
+- **Responsive Viewports:** Verified across 320px, 375px, 768px, 1280px, and 1440px with zero horizontal body overflow (`scrollWidth <= innerWidth`).
 
 ---
 
@@ -94,16 +119,15 @@ All Cypher queries in TEZCATL use strict parameter binding with zero raw string 
 
 ### 1. Multi-Hop Attack Path Discovery (`*1..8`)
 ```cypher
-MATCH p = (src:Entity {id: $source_id})-[:ATTACK_STEP*1..8]->(target:Entity {id: $target_id})
-WHERE ALL(r IN relationships(p) WHERE r.active = true)
-  AND ALL(n IN nodes(p) WHERE n.status <> 'disabled' AND n.status <> 'isolated')
-RETURN
-    [n IN nodes(p) | n.id] AS node_ids,
-    [n IN nodes(p) | n.name] AS node_names,
-    [n IN nodes(p) | n.kind] AS node_kinds,
-    [r IN relationships(p) | r.mechanism] AS mechanisms,
-    [r IN relationships(p) | r.evidence_id] AS evidence_ids,
-    length(p) AS hops
+MATCH (src:Entity {id: $source_id}), (target:Entity)
+WHERE target.id IN $target_ids
+MATCH p = (src)-[:ATTACK_STEP*1..8]->(target)
+WHERE ALL(r IN relationships(p) WHERE coalesce(r.active, true) = true)
+  AND NONE(n IN nodes(p) WHERE n.status = 'isolated')
+RETURN target.id AS target_id,
+       length(p) AS hops,
+       [n IN nodes(p) | {id: n.id, name: n.name, kind: n.kind}] AS nodes,
+       [r IN relationships(p) | {mechanism: r.mechanism, evidence_id: r.evidence_id}] AS edges
 ORDER BY hops ASC
 ```
 
@@ -114,128 +138,87 @@ CALL algo.betweenness({
     relationshipTypes: ['ATTACK_STEP']
 })
 YIELD node, score
-RETURN
-    node.id AS id,
-    node.name AS name,
-    node.kind AS kind,
-    score
-ORDER BY score DESC, id ASC
+RETURN node.id, score
+ORDER BY score DESC
 ```
 
 ### 3. Dynamic Service Blast Radius via Reverse Dependency Traversal
 ```cypher
-MATCH (s:Service)-[:DEPENDS_ON*1..4]->(e:Entity)
-WHERE e.id IN $candidate_ids
-RETURN
-    e.id AS entity_id,
-    count(DISTINCT s) AS downstream_service_count,
-    sum(s.revenue_impact_score) AS blast_radius_cost,
-    collect(DISTINCT s.name) AS impacted_services
+MATCH (e:Entity)
+WHERE e.criticality <> 'crown_jewel'
+OPTIONAL MATCH (s:Service)-[:DEPENDS_ON*1..4]->(e)
+WITH e, collect(DISTINCT s) AS svcs
+WITH e, [x IN svcs | x.name] AS svc_names, reduce(tot = 0, x IN svcs | tot + x.revenue_weight) AS cost
+RETURN e.id AS id,
+       e.name AS name,
+       e.kind AS kind,
+       e.status AS status,
+       cost AS blast_cost,
+       svc_names AS impacted_services
+ORDER BY blast_cost ASC
 ```
 
 ### 4. Shadow Graph Sandbox Containment & Verification
 ```cypher
-// Sever candidate entities in isolated tezcatl_mirror graph
-UNWIND $blocked_ids AS blocked_id
-MATCH (n:Entity {id: blocked_id})
-SET n.status = 'isolated'
-RETURN collect(n.id) AS disabled_ids;
+// Sever candidate entities in isolated scenario mirror graph
+MATCH (e:Entity)
+WHERE e.id IN $cut_nodes
+SET e.status = 'isolated'
+RETURN count(e);
 
 // Verify reachability in mirror drops to 0
-MATCH p = (src:Entity {id: $source_id})-[:ATTACK_STEP*1..8]->(target:Entity {criticality: 'crown_jewel'})
-WHERE ALL(r IN relationships(p) WHERE r.active = true)
-  AND ALL(n IN nodes(p) WHERE n.status <> 'disabled' AND n.status <> 'isolated')
+MATCH (src:Entity {id: $source_id}), (target:Entity {criticality: 'crown_jewel'})
+MATCH p = (src)-[:ATTACK_STEP*1..8]->(target)
+WHERE ALL(r IN relationships(p) WHERE coalesce(r.active, true) = true)
+  AND NONE(n IN nodes(p) WHERE n.status = 'isolated')
 RETURN count(p) AS remaining_paths;
 ```
 
 ---
 
-## Containment Decision Matrix
-
-| Option | Selected Action(s) | Operational Disruption Cost | Downstream Services Impacted | Verdict |
-| :--- | :--- | :--- | :--- | :--- |
-| **Option A (Optimal Cut)** | Revoke `tok-deploy-alpha` + `tok-artifact-rw` | **5** ($2 + 3$) | `staging-pipeline` (2) + `artifact-indexer` (3) | **SELECTED BY SOLVER** |
-| **Option B (Suboptimal)** | Disable `role-cloud-deployer` + `pkg-registry-core` | **8** ($5 + 3$) | `release-train` (5) + `artifact-indexer` (3) | Rejected (higher cost) |
-| **Option C (Brute Force Sledgehammer)** | Sever `release-controller` | **14** | `checkout-api` (5) + `release-train` (5) + `oidc-gateway` (4) | Rejected (nearly 3x cost) |
-| **Option D (Incomplete)** | Revoke `tok-deploy-alpha` alone | 2 | Leaves artifact route active | Rejected (1 path remains) |
-| **Option E (Incomplete)** | Revoke `tok-artifact-rw` alone | 3 | Leaves deploy route active | Rejected (1 path remains) |
-
----
-
-## Why Zero External APIs Are Needed
-
-Security containment demands exact mathematical proofs, zero hallucinations, and absolute reliability under pressure:
-- **Exact Minimum-Cost Vertex-Cut Math:** TEZCATL models breach containment as a minimum-weight vertex-cut / hitting-set problem over candidate graph nodes. The solver guarantees 100% path severance with lowest operational disruption.
-- **Zero Hallucination:** Every recommendation is backed by a verifiable Cypher query record, execution latency timestamp, and SHA-256 graph state hash.
-- **Self-Contained:** Runs without OpenAI, Anthropic, Gemini, Groq, or third-party agent orchestration frameworks (`langchain`, `llamaindex`, `crewai`).
-
----
-
-## Quickstart (Zero Configuration)
+## Quickstart & Verification
 
 TEZCATL requires **no external API keys, no cloud credentials, and no .env configuration**.
 
-### Option A: Docker Compose (Recommended)
-
+### 1. Launch via Docker Compose
 ```bash
-# Clone repository & launch stack
-git clone https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS.git
-cd we-make-devs-GRAPH_HACKS
-docker compose up --build
+docker-compose up -d
 ```
 
-Access points:
-- **Interactive Graph Console:** `http://localhost:8000`
-- **FalkorDB Instance:** `localhost:6379`
-
-### Option B: Local Python Virtual Environment
-
+### 2. Run the Full Integration & Scenario Test Suite
 ```bash
-# 1. Start FalkorDB
-docker run -d --name tezcatl-falkordb --restart unless-stopped -p 127.0.0.1:6379:6379 falkordb/falkordb:latest
-
-# 2. Setup Virtual Environment & Install Dependencies
-python -m venv venv
-source venv/bin/activate  # On Windows: .\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-
-# 3. Seed Topology & Run Pytest Suite
-python -m backend.seed
+# Run all 11 backend, scenario, and visual browser tests
 pytest -v
+```
 
-# 4. Run Live Feature Audit
+### 3. Run Live Feature Benchmark
+```bash
 python verify_live_features.py
+```
 
-# 5. Launch Application
-uvicorn backend.main:app --reload --port 8000
+### 4. Run Browser Visual Regression Tests
+```bash
+python tests/test_browser_visual.py
 ```
 
 ---
 
-## Live Audit Latencies & Verification
-
-Run the live feature audit to measure exact millisecond latencies across all 6 features:
-```bash
-python verify_live_features.py
-```
+## Test Suite Results (11/11 Passed)
 
 ```text
-======================================================================
-TEZCATL // FALKORDB LIVE FEATURE AUDIT & LATENCY BENCHMARK
-Target: 127.0.0.1:6379
-Prod Graph: prod_graph | Mirror Graph: tezcatl_mirror
-======================================================================
-[0] SEED DATABASE: OK in 41.40 ms
-[1] FEATURE 1: MULTI-HOP ATTACK PATH DISCOVERY          Latency: 9.14 ms (2 paths found)
-[2] FEATURE 2: NATIVE FALKORDB ALGO.BETWEENNESS         Latency: 2.26 ms (Top bottleneck: release-controller)
-[3] FEATURE 3: REVERSE DEPENDENCY SERVICE BLAST RADIUS  Latency: 3.17 ms (Calculated dynamic costs)
-[4] FEATURE 4: DETERMINISTIC VERTEX-CUT SOLVER          Latency: 0.13 ms (Optimal cut: 5 vs 14)
-[5] FEATURE 5: LIVE SHADOW-GRAPH CLONING & VERIFY       Latency: 27.46 ms (Remaining in mirror: 0)
-[6] FEATURE 6: BYPASS EDGE INJECTION & DYNAMIC RE-SOLVE Latency: 10.85 ms (Shifted cut to release-controller)
-======================================================================
-ALL 6 LIVE FALKORDB FEATURES VERIFIED WITH ZERO SIMULATION!
-Total Audit Pipeline Time: 94.41 ms
-======================================================================
+============================= test session starts =============================
+tests/test_browser_visual.py::test_responsive_hero_and_animated_flow PASSED [  9%]
+tests/test_isolated_scenarios.py::test_scenario_a_baseline_topology PASSED [ 18%]
+tests/test_isolated_scenarios.py::test_scenario_b_bypass_architecture PASSED [ 27%]
+tests/test_isolated_scenarios.py::test_scenario_c_contained_topology PASSED [ 36%]
+tests/test_isolated_scenarios.py::test_scenario_d_new_nodes_and_branches PASSED [ 45%]
+tests/test_tezcatl.py::test_end_to_end_falkordb_suite PASSED             [ 54%]
+tests/test_three_scenarios.py::test_scenario_a_canonical_cicd PASSED     [ 63%]
+tests/test_three_scenarios.py::test_scenario_b_three_tier_app_no_threat_model PASSED [ 72%]
+tests/test_three_scenarios.py::test_scenario_c_microservices_cycles_and_branches PASSED [ 81%]
+tests/test_three_scenarios.py::test_manifest_validation_rules PASSED     [ 90%]
+tests/test_three_scenarios.py::test_scenario_isolation PASSED            [100%]
+============================= 11 passed in 38.13s =============================
 ```
 
 ---
@@ -246,18 +229,34 @@ Total Audit Pipeline Time: 94.41 ms
 we-make-devs-GRAPH_HACKS/
 ├── backend/
 │   ├── __init__.py           # Package marker
-│   ├── config.py             # FalkorDB host/port environment bindings
-│   ├── models.py             # Strict Pydantic v2 schemas
-│   ├── seed.py               # Idempotent database bootstrap for entities & services
-│   ├── graph_client.py       # Parameterized OpenCypher client, shadow cloner, telemetry
+│   ├── config.py             # FalkorDB host/port environment bindings and manifest limits
+│   ├── models.py             # Strict Pydantic v2 schemas and allowlist validation
+│   ├── scenarios.py          # Pre-registered Scenarios A, B, C & ScenarioRegistry
+│   ├── seed.py               # Idempotent database bootstrap for canonical entities & services
+│   ├── graph_client.py       # Parameterized OpenCypher client, multi-scenario cloner, telemetry
 │   ├── solver.py             # Deterministic minimum-cost vertex-cut combinatorial engine
-│   └── main.py               # Production FastAPI application & REST endpoints
+│   └── main.py               # Production FastAPI application & scenario REST endpoints
 ├── frontend/
 │   ├── index.html            # Minimal Meadow landing view with on-demand interactive console
 │   └── assets/
-│       └── tezcatl.jpg       # High-res Aztec obsidian crest brand mark
+│       └── tezcatl.jpg       # Aztec obsidian crest brand mark
+├── screenshots/              # Real Playwright Edge browser screenshots (viewports & scenarios)
+│   ├── console_baseline.png
+│   ├── console_bypass_active.png
+│   ├── console_contained.png
+│   ├── console_scenario_a.png
+│   ├── console_scenario_b_architecture.png
+│   ├── console_scenario_c_cycles.png
+│   ├── landing_desktop_1440.png
+│   ├── landing_laptop_1280.png
+│   ├── landing_tablet_768.png
+│   ├── landing_mobile_375.png
+│   └── landing_mobile_320.png
 ├── tests/
-│   └── test_tezcatl.py       # Live FalkorDB test suite (all 6 features verified)
+│   ├── test_browser_visual.py      # Playwright browser visual regression & animation suite
+│   ├── test_isolated_scenarios.py  # Multi-scenario isolated graph tests
+│   ├── test_tezcatl.py             # Live FalkorDB 6-feature test suite
+│   └── test_three_scenarios.py     # Scenarios A, B, C, validation, and isolation tests
 ├── Dockerfile                # Production container deployment for Render
 ├── docker-compose.yml        # Local orchestrated spin-up
 ├── requirements.txt          # Pure first-party dependencies

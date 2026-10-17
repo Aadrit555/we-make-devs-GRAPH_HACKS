@@ -642,6 +642,13 @@
       animation: attackFlow 1.1s linear infinite;
     }
 
+    .edge-arch {
+      stroke: #64748b;
+      stroke-width: 1.6;
+      stroke-dasharray: none;
+      opacity: 0.85;
+    }
+
     .edge-dimmed {
       stroke: rgba(12, 12, 12, 0.16);
       stroke-width: 1.2;
@@ -653,6 +660,15 @@
       font-size: 8px;
       font-weight: 600;
       fill: #b45309;
+      text-anchor: middle;
+      pointer-events: none;
+    }
+
+    .edge-arch-label {
+      font-family: var(--mono);
+      font-size: 7.5px;
+      font-weight: 500;
+      fill: #64748b;
       text-anchor: middle;
       pointer-events: none;
     }
@@ -681,6 +697,57 @@
         animation: none !important;
         stroke-dasharray: 6 4;
       }
+    }
+
+    .topology-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--body);
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .dot-active {
+      background: #be123c;
+    }
+
+    .dot-bypass {
+      background: #d97706;
+    }
+
+    .dot-arch {
+      background: #64748b;
+    }
+
+    .dot-severed {
+      background: rgba(12, 12, 12, 0.25);
+    }
+
+    .arch-mode-banner {
+      margin-bottom: 14px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.45;
     }
 
     .path-row {
@@ -862,8 +929,15 @@
       </div>
 
       <div class="sheet-toolbar">
-        <div class="toolbar-left">
-          <label class="mono" for="sourceSelect">Alert Source:</label>
+        <div class="toolbar-left" style="flex-wrap:wrap; gap:8px;">
+          <label class="mono" for="scenarioSelect">Scenario:</label>
+          <select id="scenarioSelect" class="select-clean" onchange="switchScenario(this.value)">
+            <option value="cicd-compromise">Scenario A: CI/CD Pipeline (Canonical Demo)</option>
+            <option value="three-tier-app">Scenario B: Three-Tier Web App (No Threat Model)</option>
+            <option value="microservices-alternate">Scenario C: Microservices (Cycles &amp; Branches)</option>
+          </select>
+
+          <label class="mono" for="sourceSelect" id="lblSourceSelect" style="margin-left:6px;">Alert Source:</label>
           <select id="sourceSelect" class="select-clean" onchange="loadGraphState()">
             <option value="ci-runner-07">ci-runner-07 (CI Build Runner)</option>
             <option value="staging-worker-02">staging-worker-02 (Staging Worker)</option>
@@ -872,8 +946,8 @@
         </div>
 
         <div class="toolbar-right">
-          <button id="btnBypass" class="btn-sheet" onclick="injectBypass()">+ Inject Bypass Edge (EV-999)</button>
-          <button id="btnResetTopology" class="btn-sheet" onclick="resetTopology()">Reset Baseline</button>
+          <button id="btnBypass" class="btn-sheet" onclick="injectBypass()">+ Inject Bypass Edge</button>
+          <button id="btnResetTopology" class="btn-sheet" onclick="resetTopology()">Reset Scenario</button>
           <button id="btnApplyCut" class="btn-sheet btn-sheet--primary" onclick="authorizeCut()">Apply Minimum Cut</button>
         </div>
       </div>
@@ -882,15 +956,27 @@
         <div id="errorBanner" class="error-banner">
           FalkorDB Engine Offline — Ensure FalkorDB (port 6379) and FastAPI backend are running.
         </div>
+        <div id="archModeBanner" class="arch-mode-banner" style="display:none;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="mono" style="padding:2px 6px; background:#cbd5e1; border-radius:4px; font-weight:600; font-size:10px; color:#1e293b;">ARCHITECTURE MODE</span>
+            <span>Architecture topology loaded into FalkorDB. Security analysis requires an explicit threat model. Attack containment solver is inactive.</span>
+          </div>
+        </div>
 
         <div class="feature-panel active" id="panel-topology">
           <div class="panel-grid-2">
             <div class="paper-card">
               <div class="paper-card__title">
                 <span>Live FalkorDB Topology (*1..8)</span>
-                <span class="mono" style="color:var(--body)">prod_graph</span>
+                <span class="mono" id="activeGraphBadge" style="color:var(--body)">prod_graph</span>
               </div>
               <div class="topology-svg-wrap" id="svgContainer"></div>
+              <div class="topology-legend">
+                <span class="legend-item"><span class="legend-dot dot-active"></span>Active Attack Route (ATTACK_STEP)</span>
+                <span class="legend-item"><span class="legend-dot dot-bypass"></span>Injected Bypass Edge</span>
+                <span class="legend-item"><span class="legend-dot dot-arch"></span>Architecture Dependency/Call</span>
+                <span class="legend-item"><span class="legend-dot dot-severed"></span>Severed / Contained</span>
+              </div>
             </div>
 
             <div class="paper-card">
@@ -966,6 +1052,7 @@
 
   <script>
     let currentOptimalCut = null;
+    let currentScenarioId = 'cicd-compromise';
 
     function openFeature(tabName) {
       document.getElementById('workspaceOverlay').classList.add('is-open');
@@ -1054,6 +1141,10 @@
         for (const next of neighbors) {
           if (crownSet.has(next)) continue;
           const prevL = layer.has(next) ? layer.get(next) : -1;
+          // Prevent cycle back-edge layer inflation
+          if (prevL !== -1 && prevL <= currL) {
+            continue;
+          }
           const nextL = Math.max(prevL, currL + 1);
 
           const count = visitCount.get(next) || 0;
@@ -1103,7 +1194,8 @@
           const bAvg = bIn.length > 0
             ? bIn.reduce((sum, id) => sum + (prevOrder.has(id) ? prevOrder.get(id) : 0), 0) / bIn.length
             : 0;
-          return aAvg - bAvg;
+          if (aAvg !== bAvg) return aAvg - bAvg;
+          return a.id.localeCompare(b.id);
         });
       }
 
@@ -1162,6 +1254,7 @@
         const startPt = clipRayToRect(p1.x, p1.y, p2.x, p2.y, hw, hh);
         const endPt = clipRayToRect(p2.x, p2.y, p1.x, p1.y, hw, hh);
 
+        const isAttack = edge.type === 'ATTACK_STEP';
         const isActive = activePairs.has(`${edge.source}->${edge.target}`);
         const isBypass = edge.evidence_id === 'EV-999' || edge.mechanism === 'SHADOW_SSH_SOCKET';
         const srcNode = nodeMap.get(edge.source);
@@ -1171,7 +1264,10 @@
         let edgeClass = 'edge-line edge-dimmed';
         let markerId = 'arrow-dimmed';
 
-        if (isActive && !isSevered) {
+        if (!isAttack) {
+          edgeClass = isSevered ? 'edge-line edge-dimmed' : 'edge-line edge-arch';
+          markerId = isSevered ? 'arrow-dimmed' : 'arrow-arch';
+        } else if (isActive && !isSevered) {
           if (isBypass) {
             edgeClass = 'edge-line edge-bypass';
             markerId = 'arrow-bypass';
@@ -1185,21 +1281,39 @@
         let labelEl = '';
 
         const layerDiff = (p2.layer || 0) - (p1.layer || 0);
+        const isBackEdge = (p2.layer || 0) <= (p1.layer || 0) || p2.x <= p1.x;
 
-        if (isBypass || layerDiff >= 2) {
+        if (isBackEdge) {
+          // Curved loop for directed cycles
+          const loopOffset = (p1.layer === p2.layer) ? 44 : 62;
+          const cy = Math.max(26, Math.min(startPt.y, endPt.y) + loopOffset);
+          const cx1 = Math.round(startPt.x - 22);
+          const cx2 = Math.round(endPt.x + 22);
+          d = `M ${startPt.x} ${startPt.y} C ${cx1} ${cy}, ${cx2} ${cy}, ${endPt.x} ${endPt.y}`;
+          const lbl = !isAttack ? edge.type : (edge.mechanism || 'CYCLE');
+          labelEl = `<text class="${!isAttack ? 'edge-arch-label' : 'edge-label'}" x="${Math.round((startPt.x + endPt.x)/2)}" y="${cy + 10}">${lbl}</text>`;
+        } else if (isBypass || layerDiff >= 2) {
           const archY = Math.max(16, Math.min(startPt.y, endPt.y) - 68);
           const cx1 = Math.round(startPt.x + (endPt.x - startPt.x) * 0.25);
           const cx2 = Math.round(startPt.x + (endPt.x - startPt.x) * 0.75);
           d = `M ${startPt.x} ${startPt.y} C ${cx1} ${archY}, ${cx2} ${archY}, ${endPt.x} ${endPt.y}`;
           if (isBypass) {
             labelEl = `<text class="edge-label" x="${Math.round((startPt.x + endPt.x)/2)}" y="${archY - 4}">BYPASS (EV-999)</text>`;
+          } else if (!isAttack) {
+            labelEl = `<text class="edge-arch-label" x="${Math.round((startPt.x + endPt.x)/2)}" y="${archY - 4}">${edge.type}</text>`;
           }
         } else if (startPt.y === endPt.y) {
           d = `M ${startPt.x} ${startPt.y} L ${endPt.x} ${endPt.y}`;
+          if (!isAttack) {
+            labelEl = `<text class="edge-arch-label" x="${Math.round((startPt.x + endPt.x)/2)}" y="${startPt.y - 4}">${edge.type}</text>`;
+          }
         } else {
           const cx1 = Math.round(startPt.x + (endPt.x - startPt.x) * 0.45);
           const cx2 = Math.round(endPt.x - (endPt.x - startPt.x) * 0.45);
           d = `M ${startPt.x} ${startPt.y} C ${cx1} ${startPt.y}, ${cx2} ${endPt.y}, ${endPt.x} ${endPt.y}`;
+          if (!isAttack) {
+            labelEl = `<text class="edge-arch-label" x="${Math.round((startPt.x + endPt.x)/2)}" y="${Math.round((startPt.y + endPt.y)/2) - 4}">${edge.type}</text>`;
+          }
         }
 
         return `
@@ -1253,6 +1367,9 @@
             <marker id="arrow-bypass" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#d97706" />
             </marker>
+            <marker id="arrow-arch" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748b" />
+            </marker>
             <marker id="arrow-dimmed" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
               <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="rgba(12, 12, 12, 0.22)" />
             </marker>
@@ -1266,31 +1383,84 @@
     function renderUI(data) {
       document.getElementById('errorBanner').style.display = 'none';
       currentOptimalCut = data.cut_solution ? data.cut_solution.optimal : null;
+      currentScenarioId = data.scenario_id || 'cicd-compromise';
 
-      const mirrorRem = data.mirror_proof ? data.mirror_proof.remaining_paths : 0;
-      document.getElementById('landingChipPaths').textContent =
-        `FalkorDB: ${data.active_path_count} prod paths · ${mirrorRem} mirror paths`;
+      const scenSelect = document.getElementById('scenarioSelect');
+      if (scenSelect && scenSelect.value !== currentScenarioId) {
+        scenSelect.value = currentScenarioId;
+      }
+
+      const graphBadge = document.getElementById('activeGraphBadge');
+      if (graphBadge) {
+        graphBadge.textContent = data.graph_name || 'prod_graph';
+      }
+
+      // Update sourceSelect dropdown dynamically
+      const srcSelect = document.getElementById('sourceSelect');
+      if (srcSelect && data.topology && data.topology.nodes) {
+        const currVal = srcSelect.value;
+        const availableIds = data.topology.nodes.map(n => n.id);
+        srcSelect.innerHTML = data.topology.nodes.map(n => `
+          <option value="${n.id}">${n.id} (${n.name})</option>
+        `).join('');
+        if (availableIds.includes(data.source_id)) {
+          srcSelect.value = data.source_id;
+        } else if (availableIds.includes(currVal)) {
+          srcSelect.value = currVal;
+        }
+      }
 
       const pill = document.getElementById('statusPill');
-      if (data.active_path_count > 0) {
-        pill.textContent = `${data.active_path_count} Active Attack Paths`;
-        pill.className = 'status-pill status-pill--breach';
+      const archBanner = document.getElementById('archModeBanner');
+      const btnApplyCut = document.getElementById('btnApplyCut');
+      const btnBypass = document.getElementById('btnBypass');
+
+      if (!data.has_threat_model) {
+        // SCENARIO B: Architecture Mode (No Threat Model)
+        if (archBanner) archBanner.style.display = 'block';
+        pill.textContent = 'Architecture Mode · 0 Threat Vectors';
+        pill.className = 'status-pill';
+        btnApplyCut.disabled = true;
+        btnApplyCut.style.opacity = '0.4';
+        btnBypass.disabled = true;
+        btnBypass.style.opacity = '0.4';
+
+        document.getElementById('landingChipPaths').textContent =
+          `FalkorDB: ${data.topology.nodes.length} nodes · Architecture Mode`;
       } else {
-        pill.textContent = `Contained · 0 Active Paths`;
-        pill.className = 'status-pill status-pill--safe';
+        // SCENARIOS A & C: Security Containment Active
+        if (archBanner) archBanner.style.display = 'none';
+        btnApplyCut.disabled = false;
+        btnApplyCut.style.opacity = '1';
+        btnBypass.disabled = false;
+        btnBypass.style.opacity = '1';
+
+        const mirrorRem = data.mirror_proof ? data.mirror_proof.remaining_paths : 0;
+        document.getElementById('landingChipPaths').textContent =
+          `FalkorDB: ${data.active_path_count} prod paths · ${mirrorRem} mirror paths`;
+
+        if (data.active_path_count > 0) {
+          pill.textContent = `${data.active_path_count} Active Attack Paths`;
+          pill.className = 'status-pill status-pill--breach';
+        } else {
+          pill.textContent = `Contained · 0 Active Paths`;
+          pill.className = 'status-pill status-pill--safe';
+        }
       }
 
       renderTopologySVG(data);
 
       const pathsList = document.getElementById('pathsList');
-      if (data.paths.length === 0) {
-        pathsList.innerHTML = `<div class="path-row" style="color:var(--safe-green);"><strong>0 Active Attack Paths.</strong> Crown jewel <code>prod-signing-key</code> is unreachable from ${data.source_id}.</div>`;
+      if (!data.has_threat_model) {
+        pathsList.innerHTML = `<div class="path-row" style="color:var(--body);"><strong>No threat model defined for this architecture.</strong> Security analysis requires an explicit threat model declaring breach origin and target crown jewels.</div>`;
+      } else if (data.paths.length === 0) {
+        pathsList.innerHTML = `<div class="path-row" style="color:var(--safe-green);"><strong>0 Active Attack Paths.</strong> Target asset is unreachable from ${data.source_id}.</div>`;
       } else {
         pathsList.innerHTML = data.paths.map(p => `
           <div class="path-row">
             <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
               <strong>${p.path_id} (${p.hops} hops)</strong>
-              <span class="mono" style="color:var(--body)">${p.edges.map(e => e.evidence_id).join(' → ')}</span>
+              <span class="mono" style="color:var(--body)">${p.edges.map(e => e.evidence_id || e.mechanism).join(' → ')}</span>
             </div>
             <div class="mono">${p.nodes.map(n => n.id).join(' ➔ ')}</div>
           </div>
@@ -1298,28 +1468,43 @@
       }
 
       const tbody = document.getElementById('centralityTableBody');
-      tbody.innerHTML = data.candidates.map(c => `
-        <tr>
-          <td class="mono"><strong>${c.id}</strong></td>
-          <td class="mono">${c.kind}</td>
-          <td class="mono">${c.centrality}</td>
-          <td class="mono">Cost: ${c.blast_cost}</td>
-          <td>${(c.impacted_services || []).join(', ') || 'None'}</td>
-          <td class="mono" style="color:${c.status === 'isolated' ? 'var(--safe-green)' : 'var(--ink)'}">${c.status}</td>
-        </tr>
-      `).join('');
+      if (!data.has_threat_model) {
+        tbody.innerHTML = (data.topology.nodes || []).map(n => `
+          <tr>
+            <td class="mono"><strong>${n.id}</strong></td>
+            <td class="mono">${n.kind}</td>
+            <td class="mono">N/A</td>
+            <td class="mono">Cost: 0</td>
+            <td>Architecture Node</td>
+            <td class="mono" style="color:var(--body)">active</td>
+          </tr>
+        `).join('');
+      } else {
+        tbody.innerHTML = data.candidates.map(c => `
+          <tr>
+            <td class="mono"><strong>${c.id}</strong></td>
+            <td class="mono">${c.kind}</td>
+            <td class="mono">${c.centrality}</td>
+            <td class="mono">Cost: ${c.blast_cost}</td>
+            <td>${(c.impacted_services || []).join(', ') || 'None'}</td>
+            <td class="mono" style="color:${c.status === 'isolated' ? 'var(--safe-green)' : 'var(--ink)'}">${c.status}</td>
+          </tr>
+        `).join('');
+      }
 
       const mirrorBox = document.getElementById('mirrorComparisonBox');
-      if (currentOptimalCut && data.mirror_proof) {
+      if (!data.has_threat_model) {
+        mirrorBox.innerHTML = `<div class="path-row" style="color:var(--body);">Shadow containment sandbox inactive (zero attack paths).</div>`;
+      } else if (currentOptimalCut && data.mirror_proof) {
         mirrorBox.innerHTML = `
           <div class="path-row">
             <div><strong>Recommended Minimum Cut-Set:</strong> <span class="mono">${currentOptimalCut.cut_nodes.join(' + ')}</span></div>
             <div style="margin-top:6px;"><strong>Service Impact Cost:</strong> ${currentOptimalCut.blast_cost}</div>
-            <div style="margin-top:6px; color:var(--safe-green);" class="mono">tezcatl_mirror Verification: ${data.mirror_proof.remaining_paths} remaining paths [VERIFIED]</div>
+            <div style="margin-top:6px; color:var(--safe-green);" class="mono">${data.mirror_proof.mirror_graph} Verification: ${data.mirror_proof.remaining_paths} remaining paths [VERIFIED]</div>
           </div>
         `;
       } else {
-        mirrorBox.innerHTML = `<div class="path-row" style="color:var(--safe-green);">All attack paths severed in <code>prod_graph</code>.</div>`;
+        mirrorBox.innerHTML = `<div class="path-row" style="color:var(--safe-green);">All attack paths severed in <code>${data.graph_name}</code>.</div>`;
       }
 
       const totalMs = (data.telemetry || []).reduce((acc, t) => acc + (t.execution_ms || 0), 0).toFixed(2);
@@ -1332,10 +1517,19 @@
       `).join('');
     }
 
-    async function loadGraphState() {
-      const sourceId = document.getElementById('sourceSelect').value;
+    async function switchScenario(scenId) {
+      currentScenarioId = scenId;
+      const scenSelect = document.getElementById('scenarioSelect');
+      if (scenSelect) scenSelect.value = scenId;
+      await loadGraphState(true);
+    }
+
+    async function loadGraphState(resetSource = false) {
+      const sourceSelect = document.getElementById('sourceSelect');
+      let sourceId = resetSource ? '' : (sourceSelect ? sourceSelect.value : '');
       try {
-        const res = await fetch(`/api/state?source_id=${encodeURIComponent(sourceId)}`);
+        const url = `/api/state?scenario_id=${encodeURIComponent(currentScenarioId)}${sourceId ? '&source_id=' + encodeURIComponent(sourceId) : ''}`;
+        const res = await fetch(url);
         if (!res.ok) throw new Error('Backend error');
         const data = await res.json();
         renderUI(data);
@@ -1354,7 +1548,8 @@
           body: JSON.stringify({
             source_id: sourceId,
             cut_nodes: currentOptimalCut.cut_nodes,
-            blast_cost: currentOptimalCut.blast_cost
+            blast_cost: currentOptimalCut.blast_cost,
+            scenario_id: currentScenarioId
           })
         });
         if (!res.ok) throw new Error('Backend error');
@@ -1379,7 +1574,7 @@
         const res = await fetch('/api/mutate/bypass', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source_id: sourceId })
+          body: JSON.stringify({ source_id: sourceId, scenario_id: currentScenarioId })
         });
         if (!res.ok) throw new Error('Backend error');
         await loadGraphState();
@@ -1390,11 +1585,11 @@
 
     async function resetTopology() {
       try {
-        const res = await fetch('/api/reset', { method: 'POST' });
+        const res = await fetch(`/api/reset?scenario_id=${encodeURIComponent(currentScenarioId)}`, { method: 'POST' });
         if (!res.ok) throw new Error('Backend error');
         document.getElementById('receiptContainer').innerHTML = `
           <p style="color:var(--body); font-size:12.5px; margin:0;">
-            Click <strong>Apply Minimum Cut</strong> in the toolbar to isolate the verified cut-set in <code>prod_graph</code> and record a SHA-256 audit receipt.
+            Click <strong>Apply Minimum Cut</strong> in the toolbar to isolate the verified cut-set in <code>${currentScenarioId}</code> and record a SHA-256 audit receipt.
           </p>
         `;
         await loadGraphState();
@@ -1405,6 +1600,7 @@
 
     window.addEventListener('DOMContentLoaded', loadGraphState);
   </script>
+
 </body>
 
 </html>
