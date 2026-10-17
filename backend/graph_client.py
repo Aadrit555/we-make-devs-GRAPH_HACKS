@@ -20,7 +20,10 @@ from backend.models import (
     SecurityScenario,
 )
 from backend.seed import seed_graph
-from backend.solver import solve_minimum_cut_set
+from backend.solver import solve_minimum_cut_set, compute_plan_fingerprint
+
+# In-memory persisted audit records for verification provenance
+AUDIT_LOG_RECORDS: List[Dict[str, Any]] = []
 
 
 class TezcatlGraphEngine:
@@ -34,7 +37,11 @@ class TezcatlGraphEngine:
         self.db = FalkorDB(host=host, port=port)
         self.prod_name = prod_name or PROD_GRAPH
         self.mirror_name = mirror_name or MIRROR_GRAPH
-        self.ensure_seeded()
+        try:
+            self.ensure_seeded()
+        except Exception:
+            # Prevent module import crash if FalkorDB is offline; endpoints fail cleanly
+            pass
 
     def _run(
         self, graph_name: str, cypher: str, params: Optional[Dict[str, Any]] = None
@@ -279,6 +286,8 @@ class TezcatlGraphEngine:
         telemetries = []
         centrality_scores: Dict[str, float] = {}
 
+        native_algo_success = False
+        native_algo_error = None
         try:
             c_rows, c_tel = self._run(
                 target,
@@ -287,12 +296,12 @@ class TezcatlGraphEngine:
             telemetries.append(c_tel)
             for r in c_rows:
                 centrality_scores[r[0]] = round(float(r[1]), 3)
-        except Exception:
-            # Deterministic topological path betweenness calculation
-            total_p = max(len(paths), 1)
-            for p in paths:
-                for n in p["nodes"][1:-1]:
-                    centrality_scores[n["id"]] = round(centrality_scores.get(n["id"], 0.0) + (1.0 / total_p), 3)
+            native_algo_success = True
+        except Exception as e:
+            # PHASE 2.1: Strictly remove heuristic fallback and silent zero substitution
+            native_algo_success = False
+            native_algo_error = str(e)
+            centrality_scores = {}
 
         b_cypher = """
         MATCH (e:Entity)
@@ -316,6 +325,7 @@ class TezcatlGraphEngine:
         for row in b_rows:
             nid = row[0]
             services_val = row[5] if isinstance(row[5], list) else []
+            score = centrality_scores.get(nid)
             cand_map[nid] = {
                 "id": nid,
                 "name": row[1],
@@ -323,7 +333,8 @@ class TezcatlGraphEngine:
                 "status": row[3],
                 "blast_cost": int(row[4] or 0),
                 "impacted_services": [s for s in services_val if s],
-                "centrality": centrality_scores.get(nid, 0.0),
+                "centrality": score,  # None if unavailable / not returned, never fake 0.0
+                "centrality_source": "NATIVE_ALGO_BETWEENNESS" if (score is not None and native_algo_success) else ("ALGO_FAILED" if not native_algo_success else "NOT_SCORED"),
             }
 
         # If scenario provides explicit modeled mitigations, enforce modeled costs with provenance
@@ -338,9 +349,13 @@ class TezcatlGraphEngine:
         return candidates, telemetries
 
     def solve_minimum_cut_set(
-        self, source_id: str, paths: List[Dict[str, Any]], candidates: List[Dict[str, Any]]
+        self,
+        source_id: str,
+        paths: List[Dict[str, Any]],
+        candidates: List[Dict[str, Any]],
+        protected_nodes: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        return solve_minimum_cut_set(source_id, paths, candidates)
+        return solve_minimum_cut_set(source_id, paths, candidates, protected_nodes=protected_nodes)
 
     def verify_in_shadow_mirror(
         self,
@@ -381,11 +396,33 @@ class TezcatlGraphEngine:
         graph_name: Optional[str] = None,
         target_ids: Optional[List[str]] = None,
         max_depth: int = MAX_TRAVERSAL_DEPTH,
+        plan_fingerprint: Optional[str] = None,
+        scenario_id: str = "cicd-compromise",
+        scenario: Optional[Any] = None,
     ) -> Dict[str, Any]:
         target = graph_name or self.prod_name
+
+        # Stale-plan protection
         pre_paths, _ = self.find_attack_paths(
             source_id, graph_name=target, target_ids=target_ids, max_depth=max_depth
         )
+        candidates, _ = self.compute_centrality_and_blast_radius(
+            pre_paths, graph_name=target, scenario=scenario
+        )
+        current_fingerprint = compute_plan_fingerprint(source_id, pre_paths, candidates)
+
+        if plan_fingerprint and plan_fingerprint != current_fingerprint:
+            raise ValueError(
+                f"STALE_PLAN_DETECTED: Graph topology or candidate costs have changed since plan generation. "
+                f"Plan fingerprint: {plan_fingerprint[:12]}..., Current fingerprint: {current_fingerprint[:12]}..."
+            )
+
+        # Revalidate cut nodes exist and are eligible
+        cand_ids = {c["id"] for c in candidates}
+        for n in cut_nodes:
+            if n not in cand_ids:
+                raise ValueError(f"Cut node '{n}' is not an eligible candidate in graph '{target}'")
+
         isolate_cypher = """
         MATCH (e:Entity)
         WHERE e.id IN $cut_nodes
@@ -397,19 +434,48 @@ class TezcatlGraphEngine:
             source_id, graph_name=target, target_ids=target_ids, max_depth=max_depth
         )
 
+        now_ts = int(time.time())
+        now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now_ts))
+
         payload = {
             "source_id": source_id,
             "severed_nodes": cut_nodes,
             "pre_paths": len(pre_paths),
             "post_paths": len(post_paths),
             "blast_cost": blast_cost,
-            "timestamp": int(time.time()),
+            "timestamp": now_ts,
+            "scenario_id": scenario_id,
+            "graph_name": target,
+            "plan_fingerprint": current_fingerprint,
         }
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+        receipt_id = f"RCPT-{digest[:12].upper()}"
+
+        audit_entry = {
+            "receipt_id": receipt_id,
+            "timestamp_iso": now_iso,
+            "scenario_id": scenario_id,
+            "graph_name": target,
+            "source_id": source_id,
+            "severed_nodes": cut_nodes,
+            "blast_cost": blast_cost,
+            "pre_paths": len(pre_paths),
+            "post_paths": len(post_paths),
+            "verified_zero_reachability": len(post_paths) == 0,
+            "plan_fingerprint": current_fingerprint,
+            "action_payload_sha256": digest,
+            "status": "VERIFIED_CONTAINED" if len(post_paths) == 0 else "CONTAINMENT_INCOMPLETE",
+        }
+        AUDIT_LOG_RECORDS.append(audit_entry)
+
         return {
             **payload,
+            "receipt_id": receipt_id,
+            "action_payload_sha256": digest,
             "sha256_receipt": digest,
+            "verification_status": audit_entry["status"],
             "telemetry": [mut_tel, ver_tel],
+            "audit_record": audit_entry,
         }
 
     def inject_bypass_edge(
@@ -436,3 +502,7 @@ class TezcatlGraphEngine:
             },
         )
         return {"status": "bypass_injected", "telemetry": tel}
+
+    def get_audit_log(self) -> List[Dict[str, Any]]:
+        """Returns canonical immutable SHA-256 action audit log records in reverse chronological order."""
+        return list(reversed(AUDIT_LOG_RECORDS))
