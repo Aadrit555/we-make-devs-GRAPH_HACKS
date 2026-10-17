@@ -93,3 +93,4 @@ Use this exact structure to record the 90-second submission video:
 ### [01:15 - 01:30] Gated Containment Commit & Conclusion
 - **Visual:** Click **"Execute Verified Containment"**. Show the active paths drop to 0, graph status change to `CONTAINED_AND_VERIFIED`, and display the SHA-256 audit receipt.
 - **Voiceover:** *"With one click, authorized containment commits to prod_graph, dropping reachability to 0 and generating a cryptographic SHA-256 audit receipt. TEZCATL runs with 100% first-party code, zero external APIs, zero hallucinations, and 50 out of 50 passing tests. Thank you!"*
+

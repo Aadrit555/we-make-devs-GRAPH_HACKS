@@ -1,19 +1,76 @@
 """
-TEZCATL — Graph-Native Security Containment Agent (FalkorDB)
+TEZCATL — Graph-Native Breach Containment Agent on FalkorDB
 Author: Aadrit555 (https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS)
 """
+from pathlib import Path
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
+from backend.graph_client import TezcatlGraphEngine
 
-import sys
-import os
+app = FastAPI(title="TEZCATL — FalkorDB Breach Containment Engine")
+engine = TezcatlGraphEngine()
 
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if ROOT_DIR not in sys.path:
-    sys.path.insert(0, ROOT_DIR)
 
-from app import app
+class CutActionRequest(BaseModel):
+    source_id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]{1,64}$")
+    cut_nodes: list[str]
+    blast_cost: int = 0
 
-__all__ = ["app"]
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+class SourceRequest(BaseModel):
+    source_id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]{1,64}$")
+
+
+@app.get("/api/state")
+def get_investigation_state(source_id: str = "ci-runner-07"):
+    topology, top_tel = engine.get_full_topology("prod_graph")
+    paths, path_tel = engine.find_attack_paths(source_id, "prod_graph")
+    candidates, calc_tels = engine.compute_centrality_and_blast_radius(paths, "prod_graph")
+    cut_solution = engine.solve_minimum_cut_set(source_id, paths, candidates)
+
+    mirror_proof = None
+    mirror_tels = []
+    if cut_solution["optimal"]:
+        mirror_proof = engine.verify_in_shadow_mirror(
+            source_id, cut_solution["optimal"]["cut_nodes"]
+        )
+        mirror_tels = mirror_proof.get("telemetry", [])
+
+    return {
+        "source_id": source_id,
+        "topology": topology,
+        "active_path_count": len(paths),
+        "paths": paths,
+        "candidates": candidates,
+        "cut_solution": cut_solution,
+        "mirror_proof": mirror_proof,
+        "telemetry": [top_tel, path_tel, *calc_tels, *mirror_tels],
+    }
+
+
+@app.post("/api/contain")
+def execute_containment(req: CutActionRequest):
+    return engine.commit_containment(req.source_id, req.cut_nodes, req.blast_cost)
+
+
+@app.post("/api/mutate/bypass")
+def mutate_bypass(req: SourceRequest):
+    return engine.inject_bypass_edge(req.source_id)
+
+
+@app.post("/api/reset")
+def reset_graphs():
+    engine.seed_topology("prod_graph")
+    engine.clone_prod_to_mirror()
+    return {"status": "reset_complete"}
+
+
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+if FRONTEND_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+
+    @app.get("/")
+    def serve_ui():
+        return FileResponse(str(FRONTEND_DIR / "index.html"))

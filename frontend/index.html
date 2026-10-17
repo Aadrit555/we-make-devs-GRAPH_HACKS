@@ -1,90 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
-  <title>TEZCATL // Obsidian Mirror Graph Containment Engine</title>
+  <title>TEZCATL — Graph-Native Breach Containment on FalkorDB</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
   <style>
     :root {
       --paper: #f1f1ee;
-      --mist: #e2e3f1;
+      --paper-card: rgba(255, 255, 255, 0.82);
       --ink: #0c0c0c;
       --body: #6f6f6c;
       --muted: #9c9c98;
-      --surface: #ffffff;
-      --surface-subtle: #f7f7f4;
-      --surface-border: rgba(12, 12, 12, 0.1);
-      --accent: #0c0c0c;
-      --indigo: #4f46e5;
-      --danger: #be123c;
-      --danger-subtle: #fff1f2;
-      --success: #15803d;
-      --success-subtle: #f0fdf4;
-      --warning: #b45309;
-      --font: "Inter", system-ui, -apple-system, sans-serif;
+      --border: rgba(12, 12, 12, 0.11);
+      --wordmark: #efefeb;
+      --mist: #e2e3f1;
+      --breach-red: #be123c;
+      --safe-green: #15803d;
+      --font: "Inter", system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
       --mono: "JetBrains Mono", monospace;
     }
 
-    *,
-    *::before,
-    *::after {
-      box-sizing: border-box;
-    }
-
-    html,
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
     body {
       margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
       background: var(--paper);
       color: var(--ink);
       font-family: var(--font);
       -webkit-font-smoothing: antialiased;
-      overflow: hidden;
+      overflow-x: hidden;
     }
+    a { color: inherit; text-decoration: none; cursor: pointer; }
+    ul { margin: 0; padding: 0; list-style: none; }
+    button, select { font-family: inherit; }
 
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    ul {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    /* ============================================================
-       100% MINIMAL MEADOW LANDING VIEWPORT
-       ============================================================ */
     .footer {
       --u: min(100vw / 1440, 100vh / 672);
       --u: min(100vw / 1440, 100svh / 672);
       position: relative;
-      width: 100vw;
       height: 100vh;
       height: 100svh;
       background: var(--paper);
-      color: #0c0c0c;
       overflow: hidden;
       isolation: isolate;
     }
 
-    .footer__stage {
-      position: absolute;
-      inset: 0;
-      z-index: 0;
-    }
-
+    .footer__stage { position: absolute; inset: 0; z-index: 0; }
     .footer__video {
       display: block;
       width: 100%;
@@ -93,12 +59,17 @@
       object-position: 50% 100%;
       transform: translateY(9%);
     }
-
     .footer__stage::after {
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(to bottom, var(--paper) 0%, rgb(241 241 238 / .96) 26%, rgb(241 241 238 / .72) 44%, rgb(241 241 238 / 0) 70%);
+      background: linear-gradient(
+        to bottom,
+        var(--paper) 0%,
+        rgb(241 241 238 / .96) 26%,
+        rgb(241 241 238 / .72) 44%,
+        rgb(241 241 238 / 0) 70%
+      );
     }
 
     .footer__wordmark {
@@ -116,11 +87,17 @@
       pointer-events: none;
       user-select: none;
       color: rgb(232 234 250 / .4);
-      background: linear-gradient(to bottom, rgb(255 255 255 / .78), rgb(214 218 246 / .36) 48%, rgb(255 255 255 / .62));
+      background: linear-gradient(
+        to bottom,
+        rgb(255 255 255 / .78),
+        rgb(214 218 246 / .36) 48%,
+        rgb(255 255 255 / .62)
+      );
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
-      filter: drop-shadow(0 calc(-1 * var(--u)) 0 rgb(255 255 255 / .55)) drop-shadow(0 0 calc(18 * var(--u)) rgb(190 200 255 / .45));
+      filter: drop-shadow(0 calc(-1 * var(--u)) 0 rgb(255 255 255 / .55))
+              drop-shadow(0 0 calc(18 * var(--u)) rgb(190 200 255 / .45));
     }
 
     .footer__fog {
@@ -129,7 +106,12 @@
       z-index: 2;
       height: 17%;
       pointer-events: none;
-      background: linear-gradient(to top, var(--mist) 0%, rgb(226 227 241 / .6) 30%, rgb(226 227 241 / 0) 100%);
+      background: linear-gradient(
+        to top,
+        var(--mist) 0%,
+        rgb(226 227 241 / .6) 30%,
+        rgb(226 227 241 / 0) 100%
+      );
     }
 
     .footer__content {
@@ -140,7 +122,7 @@
       align-items: start;
       width: calc(1440 * var(--u));
       margin: 0 auto;
-      padding: calc(86 * var(--u)) calc(100 * var(--u)) 0 calc(160 * var(--u));
+      padding: calc(76 * var(--u)) calc(100 * var(--u)) 0 calc(160 * var(--u));
     }
 
     .brand__logo {
@@ -148,11 +130,9 @@
       align-items: center;
       gap: calc(10 * var(--u));
       font-size: calc(17 * var(--u));
-      font-weight: 500;
+      font-weight: 600;
       letter-spacing: -0.02em;
-      cursor: pointer;
     }
-
     .brand__mark {
       position: relative;
       width: calc(30 * var(--u));
@@ -161,7 +141,6 @@
       background: linear-gradient(to bottom, #2b2b2b, #0a0a0a 55%);
       box-shadow: 0 calc(1 * var(--u)) calc(2 * var(--u)) rgb(0 0 0 / .25);
     }
-
     .brand__mark::after {
       content: "";
       position: absolute;
@@ -169,8 +148,8 @@
       right: 13%;
       bottom: 14%;
       height: 19%;
-      background: #ffffff;
       border-radius: 999px;
+      background: #fff;
     }
 
     .brand__title {
@@ -180,71 +159,61 @@
       line-height: 1.2;
       letter-spacing: -0.045em;
     }
-
     .brand__text {
       max-width: calc(412 * var(--u));
       margin: calc(18 * var(--u)) 0 0;
-      color: #6f6f6c;
+      color: var(--body);
       font-size: calc(13.7 * var(--u));
       line-height: 1.43;
       letter-spacing: -0.012em;
     }
-
     .brand__cta {
       display: inline-flex;
       align-items: center;
-      gap: calc(6 * var(--u));
-      height: calc(32.5 * var(--u));
+      justify-content: center;
+      height: calc(34 * var(--u));
       margin-top: calc(20 * var(--u));
-      padding: 0 calc(16 * var(--u)) 0 calc(15 * var(--u));
+      padding: 0 calc(18 * var(--u));
       border-radius: calc(7 * var(--u));
-      background: #0c0c0c;
-      color: #ffffff;
-      font-size: calc(11.8 * var(--u));
+      border: none;
+      background: var(--ink);
+      color: #fff;
+      font-size: calc(12 * var(--u));
       font-weight: 500;
       letter-spacing: -0.01em;
       cursor: pointer;
-      border: none;
       transition: background .2s, transform .2s;
     }
-
-    .brand__cta:hover {
-      background: #262626;
-      transform: translateY(-1px);
-    }
+    .brand__cta:hover { background: #262626; transform: translateY(-1px); }
 
     .brand__copy {
       margin: calc(23 * var(--u)) 0 0;
-      color: #9c9c98;
+      color: var(--muted);
       font-size: calc(12.2 * var(--u));
       letter-spacing: .01em;
     }
-
     .brand__by {
       display: flex;
       align-items: center;
       gap: calc(5 * var(--u));
-      margin-top: calc(21 * var(--u));
+      margin-top: calc(18 * var(--u));
       font-size: calc(11.8 * var(--u));
       font-weight: 500;
+      letter-spacing: -0.01em;
     }
-
     .brand__author {
       display: inline-flex;
       align-items: center;
       gap: calc(6 * var(--u));
-      margin-left: calc(5 * var(--u));
+      margin-left: calc(4 * var(--u));
     }
-
     .brand__avatar {
-      width: calc(23 * var(--u));
-      height: calc(23 * var(--u));
+      width: calc(22 * var(--u));
+      height: calc(22 * var(--u));
       border-radius: 50%;
       background: #e3e3e0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       overflow: hidden;
+      display: inline-flex;
     }
 
     .brand__status {
@@ -253,7 +222,6 @@
       gap: calc(8 * var(--u));
       margin-top: calc(16 * var(--u));
     }
-
     .chip {
       display: inline-flex;
       align-items: center;
@@ -262,12 +230,13 @@
       padding: 0 calc(10 * var(--u));
       border: 1px solid rgb(12 12 12 / .12);
       border-radius: 999px;
-      background: rgb(255 255 255 / .65);
+      background: rgb(255 255 255 / .58);
       font-size: calc(10.8 * var(--u));
       font-weight: 500;
+      letter-spacing: -0.01em;
       white-space: nowrap;
+      cursor: pointer;
     }
-
     .chip__dot {
       width: calc(6 * var(--u));
       height: calc(6 * var(--u));
@@ -283,681 +252,235 @@
       line-height: 1;
       letter-spacing: -0.045em;
     }
-
     .col__list {
-      margin-top: calc(18 * var(--u));
+      display: grid;
+      gap: calc(20.5 * var(--u));
+      margin-top: calc(24 * var(--u));
+      font-size: calc(13.7 * var(--u));
+      line-height: 1.24;
+      letter-spacing: .022em;
+      color: #161616;
     }
-
-    .col__list li+li {
-      margin-top: calc(10 * var(--u));
+    .col--menu .col__list {
+      gap: calc(15 * var(--u));
+      margin-top: calc(21 * var(--u));
+      font-weight: 500;
+      letter-spacing: -0.025em;
+      color: var(--ink);
     }
+    .col__list a:hover { opacity: .55; }
 
-    .col__list a {
-      color: #6f6f6c;
-      font-size: calc(12.8 * var(--u));
-      letter-spacing: -0.01em;
-      transition: color .2s;
-      cursor: pointer;
-    }
-
-    .col__list a:hover {
-      color: #0c0c0c;
-    }
-
-    /* ============================================================
-       ON-DEMAND SELECTABLE FEATURE WORKSPACE OVERLAY
-       ============================================================ */
-    .sheet-overlay {
+    .workspace-overlay {
       position: fixed;
       inset: 0;
-      z-index: 9999;
-      background: rgba(241, 241, 238, 0.88);
-      backdrop-filter: blur(28px) saturate(160%);
-      -webkit-backdrop-filter: blur(28px) saturate(160%);
+      z-index: 50;
+      background: linear-gradient(
+        to bottom,
+        rgba(241, 241, 238, 0.88) 0%,
+        rgba(226, 227, 241, 0.78) 100%
+      );
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 24px;
+      padding: 28px;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity .22s ease;
     }
-
-    .sheet-overlay.active {
+    .workspace-overlay.is-open {
       opacity: 1;
       pointer-events: auto;
     }
 
-    .sheet-window {
+    .workspace-sheet {
       width: 100%;
-      max-width: 1240px;
-      max-height: 92vh;
-      background: var(--surface);
-      border-radius: 14px;
-      border: 1px solid var(--surface-border);
-      box-shadow: 0 32px 80px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.04);
+      max-width: 1180px;
+      max-height: 90vh;
+      background: rgba(246, 246, 243, 0.96);
+      border: 1px solid rgba(12, 12, 12, 0.12);
+      border-radius: 18px;
+      box-shadow: 0 24px 60px rgba(12, 12, 12, 0.12);
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      transform: translateY(14px) scale(0.99);
-      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .sheet-overlay.active .sheet-window {
-      transform: translateY(0) scale(1);
-    }
-
-    /* Sheet Header */
     .sheet-header {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--surface-border);
-      background: #fafaf8;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      padding: 18px 24px;
+      background: rgba(255, 255, 255, 0.78);
+      border-bottom: 1px solid var(--border);
     }
+    .sheet-brand { display: flex; align-items: center; gap: 12px; }
+    .sheet-title { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.03em; }
+    .sheet-sub { margin: 2px 0 0; font-size: 11.5px; color: var(--body); font-family: var(--mono); }
 
-    .sheet-header-left {
+    .feature-tabs {
       display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .sheet-brand-pill {
-      display: inline-flex;
-      align-items: center;
       gap: 6px;
-      padding: 4px 10px;
-      background: #0c0c0c;
-      color: #ffffff;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      border-radius: 6px;
-      font-family: var(--mono);
+      background: rgba(12, 12, 12, 0.05);
+      padding: 4px;
+      border-radius: 10px;
     }
-
-    .sheet-title {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--body);
-    }
-
-    /* Tab Switcher Pills */
-    .sheet-tabs {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 3px;
-      background: #ededeb;
-      border-radius: 8px;
-    }
-
     .tab-btn {
-      padding: 6px 14px;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--body);
       border: none;
       background: transparent;
-      border-radius: 6px;
+      color: var(--body);
+      padding: 7px 13px;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 500;
       cursor: pointer;
-      transition: all 0.18s ease;
-      font-family: var(--font);
     }
-
-    .tab-btn:hover {
-      color: var(--ink);
-    }
-
     .tab-btn.active {
       background: #ffffff;
       color: var(--ink);
-      font-weight: 600;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     }
 
-    .btn-sheet-close {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      background: transparent;
-      border: 1px solid rgba(12, 12, 12, 0.14);
-      border-radius: 6px;
+    .close-btn {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--ink);
       font-size: 12px;
       font-weight: 500;
-      color: var(--body);
       cursor: pointer;
-      transition: all 0.18s ease;
     }
 
-    .btn-sheet-close:hover {
-      background: #ededeb;
-      color: var(--ink);
-    }
-
-    /* Sheet Global Controls Bar */
-    .sheet-controls {
+    .sheet-toolbar {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      padding: 12px 20px;
-      background: #ffffff;
-      border-bottom: 1px solid rgba(12, 12, 12, 0.06);
-    }
-
-    .controls-group-left {
-      display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 12px;
+      padding: 14px 24px;
+      background: rgba(241, 241, 238, 0.65);
+      border-bottom: 1px solid var(--border);
     }
-
-    .select-wrap {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--body);
-      font-weight: 500;
-    }
-
-    .select-input {
-      padding: 5px 10px;
-      border-radius: 6px;
-      border: 1px solid rgba(12, 12, 12, 0.14);
-      background: #fafaf8;
+    .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .select-clean {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: #fff;
       color: var(--ink);
-      font-size: 12px;
-      font-weight: 500;
-      font-family: var(--font);
-      outline: none;
+      font-family: var(--mono);
+      font-size: 11.5px;
     }
-
-    .breach-badge {
+    .status-pill {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 600;
+      height: 28px;
+      padding: 0 11px;
+      border-radius: 999px;
       font-family: var(--mono);
-      letter-spacing: 0.02em;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .status-pill--breach {
+      background: rgba(190, 18, 60, 0.09);
+      color: var(--breach-red);
+      border: 1px solid rgba(190, 18, 60, 0.22);
+    }
+    .status-pill--safe {
+      background: rgba(21, 128, 61, 0.1);
+      color: var(--safe-green);
+      border: 1px solid rgba(21, 128, 61, 0.22);
     }
 
-    .badge-danger {
-      background: var(--danger-subtle);
-      color: var(--danger);
-      border: 1px solid rgba(190, 18, 60, 0.2);
-    }
-
-    .badge-contained {
-      background: var(--success-subtle);
-      color: var(--success);
-      border: 1px solid rgba(21, 128, 61, 0.2);
-    }
-
-    .controls-group-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .btn-action {
-      padding: 6px 14px;
+    .btn-sheet {
+      height: 32px;
+      padding: 0 13px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--ink);
       font-size: 12px;
       font-weight: 500;
-      border-radius: 6px;
       cursor: pointer;
-      transition: all 0.18s ease;
-      font-family: var(--font);
     }
+    .btn-sheet--primary { background: var(--ink); color: #fff; border-color: var(--ink); }
 
-    .btn-action-ghost {
-      background: transparent;
-      border: 1px solid rgba(12, 12, 12, 0.14);
-      color: var(--body);
+    .sheet-body { padding: 24px; overflow-y: auto; flex: 1; }
+    .feature-panel { display: none; }
+    .feature-panel.active { display: block; }
+
+    .panel-grid-2 { display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px; }
+    @media (max-width: 960px) { .panel-grid-2 { grid-template-columns: 1fr; } }
+
+    .paper-card {
+      background: var(--paper-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
     }
-
-    .btn-action-ghost:hover {
-      background: #fafaf8;
-      color: var(--ink);
-    }
-
-    .btn-action-warning {
-      background: #fffbeb;
-      border: 1px solid rgba(180, 83, 9, 0.2);
-      color: var(--warning);
-    }
-
-    .btn-action-warning:hover {
-      background: #fef3c7;
-    }
-
-    .btn-action-primary {
-      background: #0c0c0c;
-      border: 1px solid #0c0c0c;
-      color: #ffffff;
+    .paper-card__title {
+      margin: 0 0 12px;
+      font-size: 13.5px;
       font-weight: 600;
+      letter-spacing: -0.02em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
-    .btn-action-primary:hover {
-      background: #262626;
-    }
-
-    /* Sheet Content Body */
-    .sheet-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-      background: #fafaf8;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    /* Tab 1: Topology Grid */
-    .topo-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 16px;
-    }
-
-    .panel-card {
-      background: #ffffff;
+    .topology-svg-wrap {
+      width: 100%;
+      background: linear-gradient(180deg, #ffffff 0%, #f3f4f8 100%);
+      border: 1px solid var(--border);
       border-radius: 10px;
-      border: 1px solid var(--surface-border);
-      padding: 16px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+      padding: 10px;
     }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
-
-    .card-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--ink);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .card-badge {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--body);
-      font-family: var(--mono);
-      background: #f0f0ed;
-      padding: 2px 8px;
-      border-radius: 4px;
-    }
-
-    .svg-wrapper {
-      width: 100%;
-      height: 360px;
-      background: #fcfcfb;
-      border-radius: 8px;
-      border: 1px solid rgba(12, 12, 12, 0.06);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-
-    .svg-canvas {
-      width: 100%;
-      height: 100%;
-    }
-
-    .node-rect {
-      rx: 6px;
-      ry: 6px;
-      transition: all 0.3s ease;
-    }
-
-    .node-text {
-      fill: #0c0c0c;
-      font-size: 10px;
-      font-family: var(--mono);
-      font-weight: 600;
-    }
-
-    .node-subtext {
-      fill: #6f6f6c;
-      font-size: 8.5px;
-      font-family: var(--mono);
-    }
-
-    .edge-line {
-      fill: none;
-      stroke-linecap: round;
-      transition: all 0.3s ease;
-    }
-
-    .edge-active {
-      stroke: #be123c;
-      stroke-width: 1.8;
-      stroke-dasharray: 6 3;
-      animation: edgeFlow 1.6s linear infinite;
-    }
-
-    .edge-dimmed {
-      stroke: rgba(12, 12, 12, 0.12);
-      stroke-width: 1.2;
-    }
-
-    @keyframes edgeFlow {
-      to {
-        stroke-dashoffset: -18;
-      }
-    }
-
-    .edge-label {
-      fill: #9c9c98;
-      font-size: 7.5px;
-      font-family: var(--mono);
-      text-anchor: middle;
-    }
-
-    .paths-row {
-      margin-top: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .path-pill {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 12px;
-      background: #f9f9f7;
-      border-radius: 6px;
-      font-size: 11.5px;
-      font-family: var(--mono);
-      color: var(--body);
-      border: 1px solid rgba(12, 12, 12, 0.05);
-    }
-
-    .path-tag {
-      color: var(--danger);
-      font-weight: 600;
-    }
-
-    .evidence-tag {
-      color: var(--muted);
-      margin-left: auto;
-      font-size: 10.5px;
-    }
-
-    /* Tab 2: Centrality & Blast Radius Table */
-    .table-container {
-      overflow-x: auto;
-    }
-
-    .matrix-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-      text-align: left;
-    }
-
-    .matrix-table th {
-      padding: 8px 12px;
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 500;
-      border-bottom: 1px solid var(--surface-border);
-      font-family: var(--mono);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .matrix-table td {
+    .path-row {
       padding: 10px 12px;
-      border-bottom: 1px solid rgba(12, 12, 12, 0.05);
-      color: var(--ink);
-    }
-
-    .matrix-table tr:last-child td {
-      border-bottom: none;
-    }
-
-    .matrix-table code {
-      font-family: var(--mono);
-      font-size: 11.5px;
-      background: #f0f0ed;
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-
-    .meter-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-family: var(--mono);
-      font-size: 11px;
-    }
-
-    .meter-bar {
-      height: 6px;
-      border-radius: 3px;
-      background: var(--indigo);
-    }
-
-    .service-tag {
-      display: inline-block;
-      font-size: 10.5px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: #f0f0ed;
-      color: var(--body);
-      margin-right: 4px;
-      font-family: var(--mono);
-    }
-
-    /* Tab 3: Shadow Mirror Sandbox & Verification */
-    .sandbox-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-
-    .metric-split {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .metric-card {
-      padding: 14px;
       border-radius: 8px;
-      border: 1px solid var(--surface-border);
-      background: #fbfbfa;
-    }
-
-    .metric-label {
-      font-size: 11px;
-      font-family: var(--mono);
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .metric-value {
-      font-size: 20px;
-      font-weight: 700;
-      margin-top: 4px;
-      font-family: var(--mono);
-    }
-
-    .metric-sub {
-      font-size: 11px;
-      color: var(--body);
-      margin-top: 2px;
-    }
-
-    .proof-card {
-      padding: 16px;
-      border-radius: 8px;
-      background: #f8f8f5;
-      border: 1px solid rgba(12, 12, 12, 0.08);
+      background: #fff;
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
       font-size: 12px;
     }
+    .mono { font-family: var(--mono); font-size: 11px; }
 
-    .proof-title {
-      font-weight: 600;
-      font-size: 11.5px;
+    .paper-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .paper-table th, .paper-table td { padding: 10px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+    .paper-table th { color: var(--body); font-weight: 500; font-size: 11px; }
+
+    .cypher-log {
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 8px;
       font-family: var(--mono);
-      color: var(--muted);
-      letter-spacing: 0.04em;
-      margin-bottom: 12px;
-      display: flex;
-      justify-content: space-between;
+      font-size: 11.5px;
     }
-
-    .proof-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 6px 0;
-      border-bottom: 1px dashed rgba(12, 12, 12, 0.08);
-    }
-
-    .proof-row:last-child {
-      border-bottom: none;
-    }
-
-    .receipt-box {
+    .error-banner {
       display: none;
-      margin-top: 16px;
-      padding: 14px;
-      border-radius: 8px;
-      background: var(--success-subtle);
-      border: 1px solid rgba(21, 128, 61, 0.2);
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--success);
-    }
-
-    .receipt-box.active {
-      display: block;
-    }
-
-    /* Tab 4: OpenCypher Telemetry Terminal */
-    .terminal-box {
-      border-radius: 8px;
-      background: #18181b;
-      color: #e4e4e7;
-      font-family: var(--mono);
-      font-size: 11.5px;
-      overflow: hidden;
-      border: 1px solid #27272a;
-    }
-
-    .terminal-topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      margin-bottom: 14px;
       padding: 10px 14px;
-      background: #09090b;
-      border-bottom: 1px solid #27272a;
-      font-size: 10.5px;
-      color: #71717a;
-    }
-
-    .mac-dots {
-      display: flex;
-      gap: 6px;
-    }
-
-    .mac-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    }
-
-    .mac-dot.red {
-      background: #ef4444;
-    }
-
-    .mac-dot.yellow {
-      background: #f59e0b;
-    }
-
-    .mac-dot.green {
-      background: #10b981;
-    }
-
-    .terminal-body {
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      max-height: 480px;
-      overflow-y: auto;
-    }
-
-    .query-item {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #27272a;
-    }
-
-    .query-item:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
-
-    .query-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .graph-badge-prod {
-      color: #38bdf8;
-      font-weight: 600;
-    }
-
-    .graph-badge-mirror {
-      color: #34d399;
-      font-weight: 600;
-    }
-
-    .query-lat {
-      color: #a1a1aa;
-      font-size: 10.5px;
-    }
-
-    .query-cypher {
-      color: #f4f4f5;
-      line-height: 1.45;
-      background: #09090b;
-      padding: 8px 10px;
-      border-radius: 4px;
-      word-break: break-all;
+      border-radius: 8px;
+      background: rgba(190, 18, 60, 0.1);
+      border: 1px solid rgba(190, 18, 60, 0.25);
+      color: var(--breach-red);
+      font-family: var(--mono);
+      font-size: 12px;
     }
   </style>
 </head>
-
 <body>
 
-  <!-- 100% MINIMAL MEADOW LANDING PAGE (DEFAULT VIEWPORT) -->
-  <main class="footer">
+  <footer class="footer">
     <div class="footer__stage" aria-hidden="true">
       <video class="footer__video"
         src="https://d2ol7oe51mr4n9.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/4d01c727-d9c5-47c8-a778-35a451ffd39f.mp4"
@@ -970,15 +493,13 @@
 
     <div class="footer__content">
       <div class="brand">
-        <div class="brand__logo" onclick="openFeatureSheet('tab-topo')" role="button" tabindex="0"
-          aria-label="TEZCATL home">
+        <a class="brand__logo" onclick="openFeature('topology')" aria-label="TEZCATL home">
           <span class="brand__mark" aria-hidden="true"></span>
           TEZCATL
-        </div>
+        </a>
         <h2 class="brand__title">Graph-native breach containment for cloud infrastructure</h2>
-        <p class="brand__text">TEZCATL traces multi-hop lateral movement in FalkorDB, calculates downstream service
-          impact, and tests minimum-cost node isolation in a shadow graph before updating production.</p>
-        <button class="brand__cta" onclick="openFeatureSheet('tab-topo')">
+        <p class="brand__text">TEZCATL traces multi-hop lateral movement in FalkorDB, calculates downstream service impact, and tests minimum-cost node isolation in a shadow graph before updating production.</p>
+        <button class="brand__cta" onclick="openFeature('topology')">
           Open Graph Console
         </button>
         <p class="brand__copy">© 2026 TEZCATL · Architected by Aadrit555.</p>
@@ -997,816 +518,343 @@
         </p>
 
         <ul class="brand__status" aria-label="TEZCATL status">
-          <li class="chip"><span class="chip__dot" aria-hidden="true"></span><span id="chipSync">FalkorDB Multi-Graph
-              Sync</span></li>
-          <li class="chip">Track 01 · Zero API Keys</li>
+          <li class="chip" onclick="openFeature('topology')">
+            <span class="chip__dot" aria-hidden="true"></span>
+            <span id="landingChipPaths">FalkorDB Live Connected</span>
+          </li>
+          <li class="chip" onclick="openFeature('telemetry')">
+            Track 01 · Zero API Keys
+          </li>
         </ul>
       </div>
 
-      <nav class="col col--menu" aria-label="Menu">
-        <h3 class="col__title">Architecture</h3>
+      <nav class="col col--menu" aria-label="Select Feature">
+        <h3 class="col__title">Select Feature</h3>
         <ul class="col__list">
-          <li><a onclick="openFeatureSheet('tab-topo')">Attack Path Discovery</a></li>
-          <li><a onclick="openFeatureSheet('tab-matrix')">Betweenness Centrality</a></li>
-          <li><a onclick="openFeatureSheet('tab-matrix')">Service Impact Analysis</a></li>
-          <li><a onclick="openFeatureSheet('tab-sandbox')">Shadow Graph Sandbox</a></li>
-          <li><a onclick="openFeatureSheet('tab-sandbox')">SHA-256 Audit Receipt</a></li>
+          <li><a onclick="openFeature('topology')">Attack Path Discovery</a></li>
+          <li><a onclick="openFeature('centrality')">Centrality &amp; Service Impact</a></li>
+          <li><a onclick="openFeature('mirror')">Shadow Graph (tezcatl_mirror)</a></li>
+          <li><a onclick="openFeature('telemetry')">Cypher Query Log</a></li>
+          <li><a onclick="openFeature('mirror')">SHA-256 Audit Log</a></li>
         </ul>
       </nav>
 
-      <nav class="col" aria-label="Essentials">
-        <h3 class="col__title">FalkorDB Engine</h3>
+      <nav class="col" aria-label="Graph Operations">
+        <h3 class="col__title">Graph Operations</h3>
         <ul class="col__list">
-          <li><a onclick="openFeatureSheet('tab-topo')">prod_graph Topology</a></li>
-          <li><a onclick="openFeatureSheet('tab-sandbox')">tezcatl_mirror Shadow Graph</a></li>
-          <li><a onclick="openFeatureSheet('tab-cypher')">Parameterized OpenCypher</a></li>
-          <li><a onclick="openFeatureSheet('tab-sandbox')">Zero-Path Verification</a></li>
-          <li><a onclick="openFeatureSheet('tab-sandbox')">Combinatorial Cut Solver</a></li>
+          <li><a onclick="openFeature('telemetry')">Parameterized OpenCypher</a></li>
+          <li><a onclick="openFeature('mirror')">prod_graph Clone</a></li>
+          <li><a onclick="openFeature('topology'); injectBypass();">Inject Bypass Edge</a></li>
+          <li><a onclick="openFeature('topology'); resetTopology();">Reset Graph Baseline</a></li>
+          <li><a onclick="openFeature('centrality')">Minimum Vertex Cut</a></li>
         </ul>
       </nav>
 
-      <nav class="col" aria-label="Repository">
-        <h3 class="col__title">Actions & Source</h3>
+      <nav class="col" aria-label="Links">
+        <h3 class="col__title">Links</h3>
         <ul class="col__list">
-          <li><a href="https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS" target="_blank" rel="noopener">GitHub
-              Source</a></li>
-          <li><a href="https://www.wemakedevs.org/hackathons/falkordb" target="_blank" rel="noopener">WeMakeDevs
-              Portal</a></li>
-          <li><a onclick="triggerBypassFromNav()">Bypass Stress-Test</a></li>
-          <li><a onclick="triggerResetFromNav()">Reset Seed State</a></li>
+          <li><a href="https://github.com/Aadrit555/we-make-devs-GRAPH_HACKS" target="_blank" rel="noopener">GitHub Repository</a></li>
+          <li><a href="https://www.wemakedevs.org/hackathons/falkordb" target="_blank" rel="noopener">WeMakeDevs Graph Hacks</a></li>
+          <li><a href="https://docs.falkordb.com" target="_blank" rel="noopener">FalkorDB Documentation</a></li>
+          <li><a onclick="openFeature('centrality')">algo.betweenness</a></li>
+          <li><a onclick="openFeature('mirror')">Hitting-Set Solver</a></li>
         </ul>
       </nav>
     </div>
-  </main>
+  </footer>
 
-  <!-- ============================================================
-       ON-DEMAND SELECTABLE FEATURE WORKSPACE MODAL OVERLAY
-       ============================================================ -->
-  <div id="featureSheet" class="sheet-overlay" role="dialog" aria-modal="true" aria-label="TEZCATL Feature Console">
-    <div class="sheet-window">
+  <div class="workspace-overlay" id="workspaceOverlay" aria-hidden="true">
+    <div class="workspace-sheet" role="dialog" aria-label="TEZCATL Graph Console">
 
-      <!-- Modal Header -->
-      <header class="sheet-header">
-        <div class="sheet-header-left">
-          <div class="sheet-brand-pill">TEZCATL // 01</div>
-          <span class="sheet-title">Graph Containment Deck</span>
-        </div>
-
-        <nav class="sheet-tabs" role="tablist">
-          <button class="tab-btn active" data-tab="tab-topo" onclick="switchTab('tab-topo')">01 Attack Paths
-            (*1..8)</button>
-          <button class="tab-btn" data-tab="tab-matrix" onclick="switchTab('tab-matrix')">02 Centrality & Service
-            Impact</button>
-          <button class="tab-btn" data-tab="tab-sandbox" onclick="switchTab('tab-sandbox')">03 Shadow Graph
-            (tezcatl_mirror)</button>
-          <button class="tab-btn" data-tab="tab-cypher" onclick="switchTab('tab-cypher')">04 Cypher Query Log</button>
-        </nav>
-
-        <button class="btn-sheet-close" onclick="closeFeatureSheet()" title="Close feature console (Esc)">
-          Close <span style="font-family:var(--mono); font-size:10px; color:var(--muted);">[Esc]</span>
-        </button>
-      </header>
-
-      <!-- Offline Error Banner -->
-      <div id="dbOfflineBanner" style="display:none; width:100%; background:#be123c; color:#ffffff; padding:10px 16px; font-weight:600; font-size:12px; font-family:var(--mono); text-align:center;">
-        FalkorDB Engine Offline — Start backend
-      </div>
-
-      <!-- Global Controls Bar -->
-      <div class="sheet-controls">
-        <div class="controls-group-left">
-          <div class="select-wrap">
-            <span>Alert Target:</span>
-            <select id="sourceSelect" class="select-input" onchange="loadGraphState()">
-              <option value="ci-runner-07">ci-runner-07 (CI Build Runner)</option>
-              <option value="staging-worker-02">staging-worker-02 (Staging Worker)</option>
-            </select>
-          </div>
-          <div id="statusBadge" class="breach-badge badge-danger">
-            <span id="statusDot" style="width:7px; height:7px; border-radius:50%; background:#be123c;"></span>
-            <span id="statusText">UNCONTAINED BREACH · 3 ACTIVE PATHS</span>
+      <div class="sheet-header">
+        <div class="sheet-brand">
+          <span class="brand__mark" style="width:26px; height:26px; border-radius:6px;"></span>
+          <div>
+            <h2 class="sheet-title">TEZCATL // FalkorDB Connected-Data Console</h2>
+            <p class="sheet-sub">Track 01: Agents That Act on Connected Data</p>
           </div>
         </div>
 
-        <div class="controls-group-right">
-          <button class="btn-action btn-action-warning" id="btnBypass" onclick="injectBypass()">Inject Stealth Bypass
-            (EV-999)</button>
-          <button class="btn-action btn-action-ghost" onclick="resetTopology()">Reset Baseline</button>
-          <button class="btn-action btn-action-primary" id="btnCut" onclick="authorizeCut()">Apply Minimum Cut</button>
+        <div class="feature-tabs">
+          <button class="tab-btn active" data-tab="topology" onclick="switchTab('topology')">01 Attack Paths (*1..8)</button>
+          <button class="tab-btn" data-tab="centrality" onclick="switchTab('centrality')">02 Centrality &amp; Service Impact</button>
+          <button class="tab-btn" data-tab="mirror" onclick="switchTab('mirror')">03 Shadow Graph (tezcatl_mirror)</button>
+          <button class="tab-btn" data-tab="telemetry" onclick="switchTab('telemetry')">04 Cypher Query Log</button>
+        </div>
+
+        <button class="close-btn" onclick="closeWorkspace()">Close [Esc]</button>
+      </div>
+
+      <div class="sheet-toolbar">
+        <div class="toolbar-left">
+          <label class="mono" for="sourceSelect">Alert Source:</label>
+          <select id="sourceSelect" class="select-clean" onchange="loadGraphState()">
+            <option value="ci-runner-07">ci-runner-07 (CI Build Runner)</option>
+            <option value="staging-worker-02">staging-worker-02 (Staging Worker)</option>
+          </select>
+          <span id="statusPill" class="status-pill status-pill--breach">Querying FalkorDB...</span>
+        </div>
+
+        <div class="toolbar-right">
+          <button class="btn-sheet" onclick="injectBypass()">+ Inject Bypass Edge (EV-999)</button>
+          <button class="btn-sheet" onclick="resetTopology()">Reset Baseline</button>
+          <button class="btn-sheet btn-sheet--primary" onclick="authorizeCut()">Apply Minimum Cut</button>
         </div>
       </div>
 
-      <!-- Scrollable Tab Content Body -->
       <div class="sheet-body">
+        <div id="errorBanner" class="error-banner">
+          FalkorDB Engine Offline — Ensure FalkorDB (port 6379) and FastAPI backend are running.
+        </div>
 
-        <!-- TAB 1: Multi-Hop Topology -->
-        <section id="tab-topo" class="tab-content active" role="tabpanel">
-          <div class="topo-grid">
-            <div class="panel-card">
-              <div class="card-header">
-                <div class="card-title">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="18" cy="5" r="3" />
-                    <circle cx="6" cy="12" r="3" />
-                    <circle cx="18" cy="19" r="3" />
-                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                  </svg>
-                  Multi-Hop Attack Graph Topology
-                </div>
-                <span class="card-badge" id="pathHopsBadge">Bounded *1..8 Hops · FalkorDB</span>
+        <div class="feature-panel active" id="panel-topology">
+          <div class="panel-grid-2">
+            <div class="paper-card">
+              <div class="paper-card__title">
+                <span>Live FalkorDB Topology (*1..8)</span>
+                <span class="mono" style="color:var(--body)">prod_graph</span>
               </div>
+              <div class="topology-svg-wrap" id="svgContainer"></div>
+            </div>
 
-              <div class="svg-wrapper">
-                <svg id="topoCanvas" class="svg-canvas" viewBox="0 0 760 360">
-                  <defs>
-                    <marker id="arrow" viewBox="0 0 10 10" refX="24" refY="5" markerWidth="6" markerHeight="6"
-                      orient="auto-start-reverse">
-                      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#be123c" />
-                    </marker>
-                    <marker id="arrow-dim" viewBox="0 0 10 10" refX="24" refY="5" markerWidth="5" markerHeight="5"
-                      orient="auto-start-reverse">
-                      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="rgba(12, 12, 12, 0.2)" />
-                    </marker>
-                  </defs>
-
-                  <!-- Dynamic Attack Step Edges -->
-                  <g id="edgesGroup">
-                    <!-- ci_runner -> deploy_token -->
-                    <path id="e-ci-deploy" class="edge-line edge-active" d="M 95 130 C 145 130, 155 130, 205 130"
-                      marker-end="url(#arrow)" />
-                    <text class="edge-label" x="150" y="122">ENV_MEM_DUMP</text>
-
-                    <!-- ci_runner -> artifact_token -->
-                    <path id="e-ci-artifact" class="edge-line edge-active" d="M 95 130 C 145 130, 155 240, 205 240"
-                      marker-end="url(#arrow)" />
-                    <text class="edge-label" x="145" y="195">CONTAINER_ESC</text>
-
-                    <!-- deploy_token -> production_deploy_role -->
-                    <path id="e-deploy-role" class="edge-line edge-active" d="M 285 130 C 320 130, 330 90, 365 90"
-                      marker-end="url(#arrow)" />
-                    <text class="edge-label" x="325" y="98">STS_ASSUME</text>
-
-                    <!-- deploy_token -> legacy_release_session -->
-                    <path id="e-deploy-session" class="edge-line edge-active" d="M 285 130 C 320 130, 330 170, 365 170"
-                      marker-end="url(#arrow)" />
-                    <text class="edge-label" x="325" y="160">SESSION_HIJACK</text>
-
-                    <!-- artifact_token -> artifact_registry -->
-                    <path id="e-artifact-registry" class="edge-line edge-active"
-                      d="M 285 240 C 320 240, 330 250, 365 250" marker-end="url(#arrow)" />
-                    <text class="edge-label" x="325" y="240">PUBLISH_AUTH</text>
-
-                    <!-- production_deploy_role -> release_controller -->
-                    <path id="e-role-controller" class="edge-line edge-active" d="M 445 90 C 475 90, 485 160, 515 160"
-                      marker-end="url(#arrow)" />
-
-                    <!-- legacy_release_session -> release_controller -->
-                    <path id="e-session-controller" class="edge-line edge-active"
-                      d="M 445 170 C 475 170, 485 160, 515 160" marker-end="url(#arrow)" />
-
-                    <!-- artifact_registry -> release_controller -->
-                    <path id="e-registry-controller" class="edge-line edge-active"
-                      d="M 445 250 C 475 250, 485 160, 515 160" marker-end="url(#arrow)" />
-
-                    <!-- release_controller -> signer_role -->
-                    <path id="e-controller-signer" class="edge-line edge-active"
-                      d="M 595 160 C 610 160, 615 200, 630 200" marker-end="url(#arrow)" />
-                    <text class="edge-label" x="612" y="176">DISPATCH</text>
-
-                    <!-- signer_role -> signing_key -->
-                    <path id="e-signer-key" class="edge-line edge-active" d="M 700 200 C 705 200, 710 200, 715 200"
-                      marker-end="url(#arrow)" />
-
-                    <!-- Bypass stealth edge (hidden by default) -->
-                    <path id="e-bypass" class="edge-line"
-                      style="display:none; stroke:#b45309; stroke-dasharray:6 4; stroke-width:2.2;"
-                      d="M 95 130 C 250 20, 550 20, 720 185" marker-end="url(#arrow)" />
-                    <text id="lbl-bypass" class="edge-label" x="400" y="32"
-                      style="display:none; fill:#b45309; font-weight:bold;">STEALTH_BYPASS (EV-999)</text>
-                  </g>
-
-                  <!-- Entity Nodes in 5 Left-to-Right Tiers -->
-                  <g id="nodesGroup">
-                    <!-- Tier A: Source Node -->
-                    <g id="node-ci_runner" transform="translate(20, 108)">
-                      <rect class="node-rect" width="75" height="44" fill="#fee2e2" stroke="#be123c"
-                        stroke-width="1.5" />
-                      <text class="node-text" x="37" y="20" text-anchor="middle">ci-runner-07</text>
-                      <text class="node-subtext" x="37" y="34" text-anchor="middle">BREACHED</text>
-                    </g>
-
-                    <!-- Tier B: Credential Nodes (Cut Candidates) -->
-                    <g id="node-deploy_token" transform="translate(205, 108)">
-                      <rect class="node-rect" width="80" height="44" fill="#e0e7ff" stroke="#4f46e5"
-                        stroke-width="1.3" />
-                      <text class="node-text" x="40" y="20" text-anchor="middle">deploy_token</text>
-                      <text class="node-subtext" x="40" y="34" text-anchor="middle">CUT (Cost: 2)</text>
-                    </g>
-
-                    <g id="node-artifact_token" transform="translate(205, 218)">
-                      <rect class="node-rect" width="80" height="44" fill="#e0e7ff" stroke="#4f46e5"
-                        stroke-width="1.3" />
-                      <text class="node-text" x="40" y="20" text-anchor="middle">artifact_token</text>
-                      <text class="node-subtext" x="40" y="34" text-anchor="middle">CUT (Cost: 3)</text>
-                    </g>
-
-                    <!-- Tier C: Workloads & Roles -->
-                    <g id="node-production_deploy_role" transform="translate(365, 68)">
-                      <rect class="node-rect" width="80" height="44" fill="#f4f4f2" stroke="rgba(12,12,12,0.18)"
-                        stroke-width="1" />
-                      <text class="node-text" x="40" y="20" text-anchor="middle">deploy_role</text>
-                      <text class="node-subtext" x="40" y="34" text-anchor="middle">IAM Role</text>
-                    </g>
-
-                    <g id="node-legacy_release_session" transform="translate(365, 148)">
-                      <rect class="node-rect" width="80" height="44" fill="#f4f4f2" stroke="rgba(12,12,12,0.18)"
-                        stroke-width="1" />
-                      <text class="node-text" x="40" y="20" text-anchor="middle">legacy_session</text>
-                      <text class="node-subtext" x="40" y="34" text-anchor="middle">Session (4)</text>
-                    </g>
-
-                    <g id="node-artifact_registry" transform="translate(365, 228)">
-                      <rect class="node-rect" width="80" height="44" fill="#f4f4f2" stroke="rgba(12,12,12,0.18)"
-                        stroke-width="1" />
-                      <text class="node-text" x="40" y="20" text-anchor="middle">registry_core</text>
-                      <text class="node-subtext" x="40" y="34" text-anchor="middle">Registry (7)</text>
-                    </g>
-
-                    <!-- Tier D: Critical Bottleneck & Signer Role -->
-                    <g id="node-release_controller" transform="translate(515, 138)">
-                      <rect class="node-rect" width="80" height="44" fill="#fef3c7" stroke="#b45309"
-                        stroke-width="1.3" />
-                      <text class="node-text" x="40" y="20" text-anchor="middle">controller</text>
-                      <text class="node-subtext" x="40" y="34" text-anchor="middle">BOTTLENECK</text>
-                    </g>
-
-                    <g id="node-signer_role" transform="translate(620, 178)">
-                      <rect class="node-rect" width="80" height="44" fill="#f4f4f2" stroke="rgba(12,12,12,0.18)"
-                        stroke-width="1" />
-                      <text class="node-text" x="40" y="20" text-anchor="middle">signer_role</text>
-                      <text class="node-subtext" x="40" y="34" text-anchor="middle">IAM Role (8)</text>
-                    </g>
-
-                    <!-- Tier E: Crown Jewel Target -->
-                    <g id="node-signing_key" transform="translate(710, 178)">
-                      <rect class="node-rect" width="46" height="44" fill="#fee2e2" stroke="#be123c"
-                        stroke-width="1.6" />
-                      <text class="node-text" x="23" y="21" text-anchor="middle">KEY</text>
-                      <text class="node-subtext" x="23" y="33" text-anchor="middle">CROWN</text>
-                    </g>
-                  </g>
-                </svg>
+            <div class="paper-card">
+              <div class="paper-card__title">
+                <span>Discovered Attack Paths</span>
+                <span class="mono">Bounded 1..8 Hops</span>
               </div>
+              <div id="pathsList"></div>
+            </div>
+          </div>
+        </div>
 
-              <!-- Path pills list -->
-              <div class="paths-row" id="pathPillsContainer">
-                <div class="path-pill">
-                  <span class="path-tag">ROUTE-1 (5h):</span>
-                  <span>ci_runner ➔ deploy_token ➔ deploy_role ➔ controller ➔ signing_key</span>
-                  <span class="evidence-tag">[EV-001..003]</span>
-                </div>
-                <div class="path-pill">
-                  <span class="path-tag">ROUTE-2 (5h):</span>
-                  <span>ci_runner ➔ artifact_token ➔ registry ➔ controller ➔ signing_key</span>
-                  <span class="evidence-tag">[EV-004..006]</span>
-                </div>
-                <div class="path-pill">
-                  <span class="path-tag">ROUTE-3 (5h):</span>
-                  <span>ci_runner ➔ deploy_token ➔ legacy_session ➔ controller ➔ signing_key</span>
-                  <span class="evidence-tag">[EV-007..008]</span>
-                </div>
+        <div class="feature-panel" id="panel-centrality">
+          <div class="paper-card">
+            <div class="paper-card__title">
+              <span>Betweenness Centrality &amp; Reverse Service Impact</span>
+              <span class="mono">CALL algo.betweenness + (:Service)-[:DEPENDS_ON*1..4]->(:Entity)</span>
+            </div>
+            <table class="paper-table">
+              <thead>
+                <tr>
+                  <th>Entity ID</th>
+                  <th>Kind</th>
+                  <th>Betweenness Centrality</th>
+                  <th>Service Impact Cost</th>
+                  <th>Downstream Dependent Services</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="centralityTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="feature-panel" id="panel-mirror">
+          <div class="panel-grid-2">
+            <div class="paper-card">
+              <div class="paper-card__title">
+                <span>Shadow-Graph Sandbox Verification</span>
+                <span class="mono">prod_graph vs tezcatl_mirror</span>
+              </div>
+              <div id="mirrorComparisonBox"></div>
+            </div>
+
+            <div class="paper-card">
+              <div class="paper-card__title">
+                <span>SHA-256 Containment Audit Log</span>
+                <span class="mono">Verification Receipt</span>
+              </div>
+              <div id="receiptContainer">
+                <p style="color:var(--body); font-size:12.5px; margin:0;">
+                  Click <strong>Apply Minimum Cut</strong> in the toolbar to isolate the verified cut-set in <code>prod_graph</code> and record a SHA-256 audit receipt.
+                </p>
               </div>
             </div>
           </div>
-        </section>
+        </div>
 
-        <!-- TAB 2: Centrality & Blast Radius Matrix -->
-        <section id="tab-matrix" class="tab-content" role="tabpanel">
-          <div class="panel-card">
-            <div class="card-header">
-              <div class="card-title">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="20" x2="18" y2="10" />
-                  <line x1="12" y1="20" x2="12" y2="4" />
-                  <line x1="6" y1="20" x2="6" y2="14" />
-                </svg>
-                algo.betweenness Centrality & Service Blast Radius
-              </div>
-              <span class="card-badge">Native FalkorDB Algorithms</span>
+        <div class="feature-panel" id="panel-telemetry">
+          <div class="paper-card">
+            <div class="paper-card__title">
+              <span>Live Parameterized OpenCypher Query Log</span>
+              <span class="mono" id="totalLatencyBadge">0.00 ms</span>
             </div>
-
-            <div class="table-container">
-              <table class="matrix-table">
-                <thead>
-                  <tr>
-                    <th>Entity Node</th>
-                    <th>Centrality Score</th>
-                    <th>Blast Cost</th>
-                    <th>Impacted Services</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="candidatesTableBody">
-                  <tr>
-                    <td><code>release_controller</code></td>
-                    <td>
-                      <div class="meter-wrap">
-                        <div class="meter-bar" style="width: 55px; background: var(--warning);"></div>
-                        <span>11.00</span>
-                      </div>
-                    </td>
-                    <td><strong style="color:var(--warning);">10</strong></td>
-                    <td><span class="service-tag">Checkout API</span><span class="service-tag">Auth Gate</span></td>
-                    <td><span style="color:var(--body);">Spared (Protected)</span></td>
-                  </tr>
-                  <tr>
-                    <td><code>deploy_token</code></td>
-                    <td>
-                      <div class="meter-wrap">
-                        <div class="meter-bar" style="width: 20px;"></div>
-                        <span>3.33</span>
-                      </div>
-                    </td>
-                    <td><strong style="color:var(--indigo);">2</strong></td>
-                    <td><span class="service-tag">Staging Deploy</span></td>
-                    <td><span style="color:var(--indigo); font-weight:600;">TARGET CUT</span></td>
-                  </tr>
-                  <tr>
-                    <td><code>artifact_token</code></td>
-                    <td>
-                      <div class="meter-wrap">
-                        <div class="meter-bar" style="width: 15px;"></div>
-                        <span>2.00</span>
-                      </div>
-                    </td>
-                    <td><strong style="color:var(--indigo);">3</strong></td>
-                    <td><span class="service-tag">Artifact Pub</span></td>
-                    <td><span style="color:var(--indigo); font-weight:600;">TARGET CUT</span></td>
-                  </tr>
-                  <tr>
-                    <td><code>signer_role</code></td>
-                    <td>
-                      <div class="meter-wrap">
-                        <div class="meter-bar" style="width: 32px;"></div>
-                        <span>6.00</span>
-                      </div>
-                    </td>
-                    <td>8</td>
-                    <td><span class="service-tag">Canary</span><span class="service-tag">Attestation</span></td>
-                    <td><span style="color:var(--body);">Spared</span></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <div id="telemetryList"></div>
           </div>
-        </section>
-
-        <!-- TAB 3: Smoking Mirror Sandbox & Proof -->
-        <section id="tab-sandbox" class="tab-content" role="tabpanel">
-          <div class="sandbox-grid">
-            <div class="panel-card">
-              <div class="card-header">
-                <div class="card-title">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                    <line x1="8" y1="21" x2="16" y2="21" />
-                    <line x1="12" y1="17" x2="12" y2="21" />
-                  </svg>
-                  Mirror Verification
-                </div>
-                <span class="card-badge" style="color:var(--success);">tezcatl_mirror</span>
-              </div>
-
-              <div class="metric-split">
-                <div class="metric-card">
-                  <div class="metric-label">prod_graph (Live)</div>
-                  <div class="metric-value" id="prodPathsVal" style="color:var(--danger)">3 Active Routes</div>
-                  <div class="metric-sub">Unmitigated Ingress</div>
-                </div>
-
-                <div class="metric-card" style="border-color:rgba(21, 128, 61, 0.3);">
-                  <div class="metric-label">tezcatl_mirror</div>
-                  <div class="metric-value" id="mirrorPathsVal" style="color:var(--success)">0 Routes Remain</div>
-                  <div class="metric-sub">Shadow-Graph Sandbox Verified</div>
-                </div>
-              </div>
-
-              <div class="proof-card">
-                <div class="proof-title">
-                  <span>MATHEMATICAL CUT-SET VERIFICATION</span>
-                  <span id="proofSavingsBadge" style="color:var(--success);">64% AVAILABILITY SAVED</span>
-                </div>
-                <div class="proof-row">
-                  <span>Optimal Surgical Cut-Set:</span>
-                  <strong id="proofOptimalNodes">deploy_token + artifact_token</strong>
-                </div>
-                <div class="proof-row">
-                  <span>Operational Disruption Cost:</span>
-                  <strong id="proofOptimalCost" style="color:var(--indigo);">5</strong>
-                </div>
-                <div class="proof-row">
-                  <span>Naive Bottleneck Shutdown:</span>
-                  <span style="color:var(--muted);">release_controller (Cost: 14)</span>
-                </div>
-                <div style="margin-top:10px; font-size:11px; color:var(--body);">
-                  Preserves core revenue services: Checkout API ($5), Auth Gateway ($5), Billing Worker ($3).
-                </div>
-              </div>
-            </div>
-
-            <div class="panel-card">
-              <div class="card-header">
-                <div class="card-title">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  </svg>
-                  Containment Audit Receipt
-                </div>
-                <span class="card-badge">Zero False Positives</span>
-              </div>
-
-              <p style="font-size:12px; color:var(--body); margin:0 0 14px 0; line-height:1.45;">
-                Every surgical containment cut is tested inside the isolated <code>tezcatl_mirror</code> graph first.
-                Only when zero residual attack paths (*1..8) are mathematically proven does the engine authorize
-                production severance, producing an immutable SHA-256 state audit receipt.
-              </p>
-
-              <div class="receipt-box active" id="receiptBox">
-                <div style="font-weight:600; margin-bottom:4px; display:flex; justify-content:space-between;">
-                  <span>CONTAINMENT RECEIPT SEALED</span>
-                  <span id="receiptTimestamp">READY FOR AUTHORIZATION</span>
-                </div>
-                <div id="receiptDetailText">Verified reachability reduction: 3 ➔ 0 reachable paths. Target cuts:
-                  deploy_token, artifact_token.</div>
-                <div id="receiptHash" style="font-size:10px; word-break:break-all; color:var(--body); margin-top:6px;">
-                  SHA-256: 7d1f95c479e01fb33c2a8f89e3b0c44298fc1c149afbf4c8996fb92427ae41e4
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- TAB 4: FalkorDB OpenCypher Telemetry Terminal -->
-        <section id="tab-cypher" class="tab-content" role="tabpanel">
-          <div class="panel-card" style="padding:0; overflow:hidden;">
-            <div class="terminal-box">
-              <div class="terminal-topbar">
-                <div class="mac-dots">
-                  <span class="mac-dot red"></span>
-                  <span class="mac-dot yellow"></span>
-                  <span class="mac-dot green"></span>
-                </div>
-                <span>falkordb://127.0.0.1:6379/prod_graph + tezcatl_mirror</span>
-                <span id="telemetryLatencyBadge" style="color:#38bdf8;">0.84 ms Total</span>
-              </div>
-              <div class="terminal-body" id="telemetryBody">
-                <div class="query-item">
-                  <div class="query-header">
-                    <span class="graph-badge-prod">[prod_graph]</span>
-                    <span class="query-lat">(0.42 ms)</span>
-                  </div>
-                  <div class="query-cypher">MATCH p = (src:Entity {id: $source_id})-[:ATTACK_STEP*1..8]->(target:Entity
-                    {criticality: 'crown_jewel'}) RETURN p</div>
-                </div>
-                <div class="query-item">
-                  <div class="query-header">
-                    <span class="graph-badge-prod">[prod_graph]</span>
-                    <span class="query-lat">(1.10 ms)</span>
-                  </div>
-                  <div class="query-cypher">CALL algo.betweenness({nodeLabels: ['Entity'], relationshipTypes:
-                    ['ATTACK_STEP']}) YIELD node, score</div>
-                </div>
-                <div class="query-item">
-                  <div class="query-header">
-                    <span class="graph-badge-prod">[prod_graph]</span>
-                    <span class="query-lat">(0.65 ms)</span>
-                  </div>
-                  <div class="query-cypher">MATCH (s:Service)-[:DEPENDS_ON*1..4]->(e:Entity) WHERE e.id IN
-                    $candidate_ids RETURN e.id, sum(s.revenue_impact_score)</div>
-                </div>
-                <div class="query-item">
-                  <div class="query-header">
-                    <span class="graph-badge-mirror">[tezcatl_mirror]</span>
-                    <span class="query-lat">(1.80 ms)</span>
-                  </div>
-                  <div class="query-cypher">OPTIONAL MATCH p = (src)-[:ATTACK_STEP*1..8]->(target) WHERE NONE(n IN
-                    nodes(p) WHERE n.id IN $severed_ids) RETURN count(p)</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
+        </div>
       </div>
+
     </div>
   </div>
 
   <script>
-    // Global State
     let currentOptimalCut = null;
-    let isBypassActive = false;
 
-    // Modal Sheet Management
-    function openFeatureSheet(tabId = 'tab-topo') {
-      const sheet = document.getElementById('featureSheet');
-      if (sheet) {
-        sheet.classList.add('active');
-        switchTab(tabId);
-      }
+    function openFeature(tabName) {
+      document.getElementById('workspaceOverlay').classList.add('is-open');
+      switchTab(tabName || 'topology');
     }
 
-    function closeFeatureSheet() {
-      const sheet = document.getElementById('featureSheet');
-      if (sheet) {
-        sheet.classList.remove('active');
-      }
+    function closeWorkspace() {
+      document.getElementById('workspaceOverlay').classList.remove('is-open');
     }
 
-    function switchTab(tabId) {
-      // Deactivate all tab buttons and panes
+    function switchTab(tabName) {
       document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
       });
-      document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.toggle('active', content.id === tabId);
+      document.querySelectorAll('.feature-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === `panel-${tabName}`);
       });
     }
 
-    // Keyboard navigation (Esc to close)
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        closeFeatureSheet();
-      }
+      if (e.key === 'Escape') closeWorkspace();
     });
 
-    // Close on overlay backdrop click
-    document.getElementById('featureSheet').addEventListener('click', (e) => {
-      if (e.target === document.getElementById('featureSheet')) {
-        closeFeatureSheet();
-      }
-    });
+    function renderTopologySVG(data) {
+      const coords = {
+        "ci-runner-07": { x: 75, y: 75 },
+        "staging-worker-02": { x: 75, y: 185 },
+        "tok-deploy-alpha": { x: 235, y: 65 },
+        "tok-artifact-rw": { x: 235, y: 185 },
+        "role-cloud-deployer": { x: 395, y: 65 },
+        "pkg-registry-core": { x: 395, y: 185 },
+        "release-controller": { x: 545, y: 125 },
+        "prod-signing-key": { x: 685, y: 125 }
+      };
 
-    function triggerBypassFromNav() {
-      openFeatureSheet('tab-topo');
-      injectBypass();
+      const activePairs = new Set();
+      (data.paths || []).forEach(p => {
+        for (let i = 0; i < p.nodes.length - 1; i++) {
+          activePairs.add(`${p.nodes[i].id}->${p.nodes[i+1].id}`);
+        }
+      });
+
+      const cutSet = new Set(data.cut_solution && data.cut_solution.optimal ? data.cut_solution.optimal.cut_nodes : []);
+      const topNodes = (data.topology && data.topology.nodes) || [];
+      const topEdges = (data.topology && data.topology.edges) || [];
+
+      const edgeLines = topEdges.map(edge => {
+        const p1 = coords[edge.source] || { x: 50, y: 50 };
+        const p2 = coords[edge.target] || { x: 150, y: 150 };
+        const isActive = activePairs.has(`${edge.source}->${edge.target}`);
+        const color = isActive ? "#be123c" : "rgba(12,12,12,0.16)";
+        const width = isActive ? 2.2 : 1.2;
+        const dash = isActive ? "stroke-dasharray='5 4'" : "";
+        return `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${color}" stroke-width="${width}" ${dash} />`;
+      }).join('');
+
+      const nodeBoxes = topNodes.map(node => {
+        const pt = coords[node.id] || { x: 100, y: 100 };
+        const isIsolated = node.status === 'isolated';
+        const isCutTarget = cutSet.has(node.id);
+        const isCrown = node.criticality === 'crown_jewel';
+        let fill = "#ffffff", stroke = "#0c0c0c";
+        if (isIsolated) { fill = "#e5e7eb"; stroke = "#15803d"; }
+        else if (isCrown) { fill = "#eef2ff"; stroke = "#4338ca"; }
+        else if (isCutTarget) { fill = "#fff1f2"; stroke = "#be123c"; }
+
+        return `
+          <g transform="translate(${pt.x}, ${pt.y})">
+            <rect x="-58" y="-18" width="116" height="36" rx="8" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>
+            <text x="0" y="4" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#0c0c0c">${node.id}</text>
+          </g>
+        `;
+      }).join('');
+
+      document.getElementById('svgContainer').innerHTML = `
+        <svg viewBox="0 0 760 250" width="100%" height="230">
+          ${edgeLines}
+          ${nodeBoxes}
+        </svg>
+      `;
     }
 
-    function triggerResetFromNav() {
-      openFeatureSheet('tab-topo');
-      resetTopology();
+    function renderUI(data) {
+      document.getElementById('errorBanner').style.display = 'none';
+      currentOptimalCut = data.cut_solution ? data.cut_solution.optimal : null;
+
+      const mirrorRem = data.mirror_proof ? data.mirror_proof.remaining_paths : 0;
+      document.getElementById('landingChipPaths').textContent =
+        `FalkorDB: ${data.active_path_count} prod paths · ${mirrorRem} mirror paths`;
+
+      const pill = document.getElementById('statusPill');
+      if (data.active_path_count > 0) {
+        pill.textContent = `${data.active_path_count} Active Attack Paths`;
+        pill.className = 'status-pill status-pill--breach';
+      } else {
+        pill.textContent = `Contained · 0 Active Paths`;
+        pill.className = 'status-pill status-pill--safe';
+      }
+
+      renderTopologySVG(data);
+
+      const pathsList = document.getElementById('pathsList');
+      if (data.paths.length === 0) {
+        pathsList.innerHTML = `<div class="path-row" style="color:var(--safe-green);"><strong>0 Active Attack Paths.</strong> Crown jewel <code>prod-signing-key</code> is unreachable from ${data.source_id}.</div>`;
+      } else {
+        pathsList.innerHTML = data.paths.map(p => `
+          <div class="path-row">
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <strong>${p.path_id} (${p.hops} hops)</strong>
+              <span class="mono" style="color:var(--body)">${p.edges.map(e => e.evidence_id).join(' → ')}</span>
+            </div>
+            <div class="mono">${p.nodes.map(n => n.id).join(' ➔ ')}</div>
+          </div>
+        `).join('');
+      }
+
+      const tbody = document.getElementById('centralityTableBody');
+      tbody.innerHTML = data.candidates.map(c => `
+        <tr>
+          <td class="mono"><strong>${c.id}</strong></td>
+          <td class="mono">${c.kind}</td>
+          <td class="mono">${c.centrality}</td>
+          <td class="mono">Cost: ${c.blast_cost}</td>
+          <td>${(c.impacted_services || []).join(', ') || 'None'}</td>
+          <td class="mono" style="color:${c.status === 'isolated' ? 'var(--safe-green)' : 'var(--ink)'}">${c.status}</td>
+        </tr>
+      `).join('');
+
+      const mirrorBox = document.getElementById('mirrorComparisonBox');
+      if (currentOptimalCut && data.mirror_proof) {
+        mirrorBox.innerHTML = `
+          <div class="path-row">
+            <div><strong>Recommended Minimum Cut-Set:</strong> <span class="mono">${currentOptimalCut.cut_nodes.join(' + ')}</span></div>
+            <div style="margin-top:6px;"><strong>Service Impact Cost:</strong> ${currentOptimalCut.blast_cost}</div>
+            <div style="margin-top:6px; color:var(--safe-green);" class="mono">tezcatl_mirror Verification: ${data.mirror_proof.remaining_paths} remaining paths [VERIFIED]</div>
+          </div>
+        `;
+      } else {
+        mirrorBox.innerHTML = `<div class="path-row" style="color:var(--safe-green);">All attack paths severed in <code>prod_graph</code>.</div>`;
+      }
+
+      const totalMs = (data.telemetry || []).reduce((acc, t) => acc + (t.execution_ms || 0), 0).toFixed(2);
+      document.getElementById('totalLatencyBadge').textContent = `Total: ${totalMs} ms`;
+      document.getElementById('telemetryList').innerHTML = (data.telemetry || []).map(t => `
+        <div class="cypher-log">
+          <div><strong>[${t.graph}]</strong> (${t.execution_ms} ms · ${t.rows} rows) | params=${JSON.stringify(t.params)}</div>
+          <div style="margin-top:4px; color:var(--body);">${t.cypher}</div>
+        </div>
+      `).join('');
     }
 
     async function loadGraphState() {
-      const sourceSelect = document.getElementById('sourceSelect');
-      const sourceId = sourceSelect ? sourceSelect.value : 'ci-runner-07';
-      const offlineBanner = document.getElementById('dbOfflineBanner');
-
+      const sourceId = document.getElementById('sourceSelect').value;
       try {
         const res = await fetch(`/api/state?source_id=${encodeURIComponent(sourceId)}`);
-        if (!res.ok) {
-          throw new Error(`FalkorDB state endpoint returned status ${res.status}`);
-        }
+        if (!res.ok) throw new Error('Backend error');
         const data = await res.json();
-        if (offlineBanner) offlineBanner.style.display = 'none';
-        renderState(data);
+        renderUI(data);
       } catch (err) {
-        console.error("FalkorDB Engine Offline or unreachable:", err);
-        if (offlineBanner) offlineBanner.style.display = 'block';
-        const statusText = document.getElementById('statusText');
-        const statusDot = document.getElementById('statusDot');
-        if (statusText) statusText.textContent = 'FalkorDB Engine Offline — Start backend';
-        if (statusDot) statusDot.style.background = '#be123c';
-      }
-    }
-
-    function renderTopologySvg(topology, activePaths, optimalCut) {
-      const edgesGroup = document.getElementById('edgesGroup');
-      const nodesGroup = document.getElementById('nodesGroup');
-      if (!edgesGroup || !nodesGroup || !topology || !topology.nodes) return;
-
-      const nodePositions = {
-        "ci-runner-07": { x: 25, y: 80, name: "ci-runner-07", role: "WORKLOAD", w: 95 },
-        "staging-worker-02": { x: 25, y: 220, name: "staging-worker", role: "WORKLOAD", w: 95 },
-        "tok-deploy-alpha": { x: 195, y: 80, name: "tok-deploy", role: "CRED (Cost 2)", w: 90 },
-        "tok-artifact-rw": { x: 195, y: 220, name: "tok-artifact", role: "CRED (Cost 3)", w: 90 },
-        "role-cloud-deployer": { x: 365, y: 80, name: "cloud-deployer", role: "IAM ROLE (6)", w: 95 },
-        "pkg-registry-core": { x: 365, y: 220, name: "pkg-registry", role: "REGISTRY (7)", w: 95 },
-        "release-controller": { x: 535, y: 150, name: "controller", role: "BOTTLENECK (14)", w: 95 },
-        "prod-signing-key": { x: 705, y: 150, name: "signing-key", role: "CROWN JEWEL", w: 90 }
-      };
-
-      const cutNodes = (optimalCut && optimalCut.cut_nodes) || [];
-      const nodes = topology.nodes || [];
-      const edges = topology.edges || [];
-      const isContained = !activePaths || activePaths.length === 0;
-
-      // 1. Draw Edges from FalkorDB live topology
-      edgesGroup.innerHTML = edges.map((e) => {
-        const srcPos = nodePositions[e.source] || { x: 50, y: 100, w: 80 };
-        const dstPos = nodePositions[e.target] || { x: 600, y: 100, w: 80 };
-        const x1 = srcPos.x + srcPos.w;
-        const y1 = srcPos.y + 22;
-        const x2 = dstPos.x;
-        const y2 = dstPos.y + 22;
-
-        const isBypass = e.evidence_id === 'EV-999' || e.evidence_id === 'E-BYPASS-STRESS';
-        const isEdgeActive = e.active && !isContained && !cutNodes.includes(e.source) && !cutNodes.includes(e.target);
-
-        let d;
-        if (isBypass) {
-          d = `M ${x1} ${y1} C 250 20, 430 20, ${x2} ${y2}`;
-        } else {
-          const midX = (x1 + x2) / 2;
-          d = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
-        }
-
-        const cls = isEdgeActive ? 'edge-line edge-active' : 'edge-line edge-dimmed';
-        const marker = isEdgeActive ? 'url(#arrow)' : 'url(#arrow-dim)';
-        const bypassStyle = isBypass ? 'stroke:#b45309; stroke-dasharray:6 4; stroke-width:2.2;' : '';
-
-        return `
-          <g>
-            <path id="e-${e.source}-${e.target}" class="${cls}" style="${bypassStyle}" d="${d}" marker-end="${marker}" />
-            ${isBypass ? `<text class="edge-label" x="380" y="32" style="fill:#b45309; font-weight:bold;">STEALTH_BYPASS (EV-999)</text>` : ''}
-          </g>
-        `;
-      }).join('');
-
-      // 2. Draw Nodes from FalkorDB live topology
-      nodesGroup.innerHTML = nodes.map(n => {
-        const pos = nodePositions[n.id] || { x: 100, y: 100, name: n.id, role: n.kind, w: 90 };
-        const isIsolated = n.status === 'isolated' || n.status === 'disabled';
-        const isOptimalCut = cutNodes.includes(n.id);
-        const isCompromised = n.status === 'compromised';
-        const isCrown = n.criticality === 'crown_jewel';
-
-        let stroke = 'rgba(12,12,12,0.18)';
-        let fill = '#f4f4f2';
-        let sub = pos.role;
-
-        if (isIsolated) {
-          stroke = '#15803d';
-          fill = '#dcfce7';
-          sub = 'ISOLATED';
-        } else if (isOptimalCut) {
-          stroke = '#4f46e5';
-          fill = '#e0e7ff';
-          sub = `CUT (Cost: ${n.cost})`;
-        } else if (isCrown) {
-          stroke = '#be123c';
-          fill = '#fee2e2';
-          sub = 'CROWN';
-        } else if (isCompromised) {
-          stroke = '#be123c';
-          fill = '#fee2e2';
-          sub = 'BREACHED';
-        } else if (n.id === 'release-controller') {
-          stroke = '#b45309';
-          fill = '#fef3c7';
-          sub = 'BOTTLENECK (14)';
-        }
-
-        return `
-          <g id="node-${n.id}" transform="translate(${pos.x}, ${pos.y})">
-            <rect class="node-rect" width="${pos.w}" height="44" fill="${fill}" stroke="${stroke}" stroke-width="${isOptimalCut || isIsolated || isCrown ? 1.6 : 1.1}" rx="4" />
-            <text class="node-text" x="${pos.w / 2}" y="20" text-anchor="middle">${pos.name}</text>
-            <text class="node-subtext" x="${pos.w / 2}" y="34" text-anchor="middle" style="${isIsolated ? 'fill:#15803d; font-weight:600;' : (isOptimalCut ? 'fill:#4f46e5; font-weight:600;' : '')}">${sub}</text>
-          </g>
-        `;
-      }).join('');
-    }
-
-    function renderState(data) {
-      const pathCount = data.active_path_count !== undefined ? data.active_path_count : (data.paths ? data.paths.length : 0);
-      const isContained = pathCount === 0;
-
-      // 1. Status Badge
-      const statusBadge = document.getElementById('statusBadge');
-      const statusDot = document.getElementById('statusDot');
-      const statusText = document.getElementById('statusText');
-      if (statusBadge && statusDot && statusText) {
-        if (isContained) {
-          statusBadge.className = 'breach-badge badge-contained';
-          statusDot.style.background = '#15803d';
-          statusText.textContent = 'CONTAINED · 0 PATHS REACHABLE';
-        } else {
-          statusBadge.className = 'breach-badge badge-danger';
-          statusDot.style.background = '#be123c';
-          statusText.textContent = `UNCONTAINED BREACH · ${pathCount} ACTIVE PATHS`;
-        }
-      }
-
-      // 2. Metric Cards
-      const prodPathsVal = document.getElementById('prodPathsVal');
-      const mirrorPathsVal = document.getElementById('mirrorPathsVal');
-      if (prodPathsVal) {
-        prodPathsVal.textContent = isContained ? '0 Routes (Contained)' : `${pathCount} Active Routes`;
-        prodPathsVal.style.color = isContained ? '#15803d' : '#be123c';
-      }
-      if (mirrorPathsVal) {
-        const mirrorCount = data.mirror_proof ? (data.mirror_proof.mirror_remaining_count !== undefined ? data.mirror_proof.mirror_remaining_count : 0) : 0;
-        mirrorPathsVal.textContent = `${mirrorCount} Routes Remain`;
-      }
-
-      // 3. Optimal Cut Resolution
-      currentOptimalCut = data.cut_solution ? data.cut_solution.optimal : null;
-
-      // 4. Dynamic SVG Topology from FalkorDB
-      if (data.topology) {
-        renderTopologySvg(data.topology, data.paths, currentOptimalCut);
-      }
-
-      // 5. Path Pills
-      const pillsContainer = document.getElementById('pathPillsContainer');
-      if (pillsContainer) {
-        if (data.paths && data.paths.length > 0) {
-          pillsContainer.innerHTML = data.paths.map((p, idx) => {
-            const nodeStr = p.nodes.map(n => n.id).join(' ➔ ');
-            const evStr = p.evidence_ids ? `[${p.evidence_ids.slice(0, 2).join(', ')}...]` : '';
-            return `
-              <div class="path-pill">
-                <span class="path-tag">${p.path_id || 'ROUTE-' + (idx+1)} (${p.hops}h):</span>
-                <span>${nodeStr}</span>
-                <span class="evidence-tag">${evStr}</span>
-              </div>
-            `;
-          }).join('');
-        } else {
-          pillsContainer.innerHTML = `<div class="path-pill" style="color:var(--success); font-weight:600;">0 Active Reachable Routes. Graph Contained.</div>`;
-        }
-      }
-
-      // 6. Proof Box & Optimal Cut
-      if (currentOptimalCut && currentOptimalCut.cut_nodes) {
-        const proofOptimalNodes = document.getElementById('proofOptimalNodes');
-        const proofOptimalCost = document.getElementById('proofOptimalCost');
-        if (proofOptimalNodes) proofOptimalNodes.textContent = currentOptimalCut.cut_nodes.join(' + ');
-        if (proofOptimalCost) proofOptimalCost.textContent = currentOptimalCut.blast_cost;
-      }
-
-      // 7. Centrality Table
-      if (data.candidates && data.candidates.length > 0) {
-        const tbody = document.getElementById('candidatesTableBody');
-        if (tbody) {
-          const maxCent = Math.max(...data.candidates.map(c => c.centrality || 0), 1);
-          tbody.innerHTML = data.candidates.map(c => {
-            const widthPct = Math.min(100, Math.round(((c.centrality || 0) / maxCent) * 80));
-            const isCut = currentOptimalCut && currentOptimalCut.cut_nodes && currentOptimalCut.cut_nodes.includes(c.id);
-            const stateStr = isContained && isCut
-              ? '<span style="color:#15803d; font-weight:600;">ISOLATED</span>'
-              : (isCut ? '<span style="color:var(--indigo); font-weight:600;">TARGET CUT</span>' : '<span style="color:var(--body);">Spared</span>');
-            const svcs = (c.services || []).map(s => `<span class="service-tag">${s}</span>`).join('');
-            return `
-              <tr>
-                <td><code>${c.id}</code></td>
-                <td>
-                  <div class="meter-wrap">
-                    <div class="meter-bar" style="width: ${widthPct}px; background: ${c.centrality > 0.8 ? 'var(--warning)' : 'var(--indigo)'};"></div>
-                    <span>${(c.centrality || 0).toFixed(2)}</span>
-                  </div>
-                </td>
-                <td><strong style="color:${isCut ? 'var(--indigo)' : 'var(--ink)'};">${c.blast_cost}</strong></td>
-                <td>${svcs || 'None'}</td>
-                <td>${stateStr}</td>
-              </tr>
-            `;
-          }).join('');
-        }
-      }
-
-      // 8. Telemetry Terminal
-      if (data.telemetry && data.telemetry.length > 0) {
-        const tBody = document.getElementById('telemetryBody');
-        const totalMs = data.telemetry.reduce((acc, t) => acc + (t.execution_ms || 0), 0).toFixed(2);
-        const latBadge = document.getElementById('telemetryLatencyBadge');
-        const chipSync = document.getElementById('chipSync');
-        if (latBadge) latBadge.textContent = `${totalMs} ms Total`;
-        if (chipSync) chipSync.textContent = `FalkorDB ${totalMs} ms`;
-
-        if (tBody) {
-          tBody.innerHTML = data.telemetry.map(t => {
-            const isMirror = t.graph.includes('mirror');
-            const badgeClass = isMirror ? 'graph-badge-mirror' : 'graph-badge-prod';
-            return `
-              <div class="query-item">
-                <div class="query-header">
-                  <span class="${badgeClass}">[${t.graph}]</span>
-                  <span class="query-lat">(${t.execution_ms} ms)</span>
-                </div>
-                <div class="query-cypher">${t.cypher}</div>
-              </div>
-            `;
-          }).join('');
-        }
+        document.getElementById('errorBanner').style.display = 'block';
       }
     }
 
     async function authorizeCut() {
       if (!currentOptimalCut) return;
-      const sourceSelect = document.getElementById('sourceSelect');
-      const sourceId = sourceSelect ? sourceSelect.value : 'ci-runner-07';
-
+      const sourceId = document.getElementById('sourceSelect').value;
       try {
         const res = await fetch('/api/contain', {
           method: 'POST',
@@ -1814,70 +862,56 @@
           body: JSON.stringify({
             source_id: sourceId,
             cut_nodes: currentOptimalCut.cut_nodes,
-            cut_node_ids: currentOptimalCut.cut_nodes,
             blast_cost: currentOptimalCut.blast_cost
           })
         });
-
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        }
-
+        if (!res.ok) throw new Error('Backend error');
         const rec = await res.json();
-        const pre = rec && rec.pre_paths !== undefined ? rec.pre_paths : 0;
-        const post = rec && rec.post_paths !== undefined ? rec.post_paths : 0;
-        const hash = (rec && (rec.sha256_receipt || (rec.receipt && rec.receipt.post_mitigation_graph_hash))) || "";
-
-        const now = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-        document.getElementById('receiptTimestamp').textContent = now;
-        document.getElementById('receiptDetailText').textContent = `Verified reachability reduction: ${pre} ➔ ${post} paths. Severed: ${currentOptimalCut.cut_nodes.join(', ')}`;
-        document.getElementById('receiptHash').textContent = `SHA-256: ${hash}`;
-        document.getElementById('receiptBox').classList.add('active');
-
+        document.getElementById('receiptContainer').innerHTML = `
+          <div class="path-row" style="border-color:var(--safe-green);">
+            <div style="color:var(--safe-green); font-weight:600;">Containment Committed (${rec.pre_paths} ➔ ${rec.post_paths} paths)</div>
+            <div class="mono" style="margin-top:6px;">Severed: ${rec.severed_nodes.join(', ')}</div>
+            <div class="mono" style="margin-top:4px; word-break:break-all;">SHA-256: ${rec.sha256_receipt}</div>
+          </div>
+        `;
         await loadGraphState();
+        switchTab('mirror');
       } catch (err) {
-        console.error("Containment failed:", err);
+        document.getElementById('errorBanner').style.display = 'block';
       }
     }
 
     async function injectBypass() {
-      const sourceSelect = document.getElementById('sourceSelect');
-      const sourceId = sourceSelect ? sourceSelect.value : 'ci-runner-07';
-
+      const sourceId = document.getElementById('sourceSelect').value;
       try {
         const res = await fetch('/api/mutate/bypass', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ source_id: sourceId })
         });
-        const body = await res.json();
-        const btnBypass = document.getElementById('btnBypass');
-        if (btnBypass && body.action) {
-          btnBypass.textContent = body.action === 'injected' ? 'Remove Stealth Bypass' : 'Inject Stealth Bypass (EV-999)';
-        }
+        if (!res.ok) throw new Error('Backend error');
         await loadGraphState();
       } catch (err) {
-        console.error("Bypass error:", err);
+        document.getElementById('errorBanner').style.display = 'block';
       }
     }
 
     async function resetTopology() {
-      const btnBypass = document.getElementById('btnBypass');
-      if (btnBypass) {
-        btnBypass.textContent = 'Inject Stealth Bypass (EV-999)';
-      }
-      document.getElementById('receiptBox').classList.remove('active');
-
       try {
-        await fetch('/api/reset', { method: 'POST' });
+        const res = await fetch('/api/reset', { method: 'POST' });
+        if (!res.ok) throw new Error('Backend error');
+        document.getElementById('receiptContainer').innerHTML = `
+          <p style="color:var(--body); font-size:12.5px; margin:0;">
+            Click <strong>Apply Minimum Cut</strong> in the toolbar to isolate the verified cut-set in <code>prod_graph</code> and record a SHA-256 audit receipt.
+          </p>
+        `;
         await loadGraphState();
       } catch (err) {
-        console.error("Reset failed:", err);
+        document.getElementById('errorBanner').style.display = 'block';
       }
     }
 
     window.addEventListener('DOMContentLoaded', loadGraphState);
   </script>
 </body>
-
 </html>
