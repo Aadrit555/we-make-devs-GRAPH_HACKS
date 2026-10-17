@@ -31,47 +31,44 @@ def test_client_connection(client):
 
 
 def test_path_discovery_count_and_hop_bound(client):
-    """Query 1: exactly three active directed paths from ci_runner to signing_key within 8 hops."""
-    paths = client.discover_attack_paths("ci_runner", max_hops=8)
+    """Query 1: exactly two active directed paths from ci-runner-07 to prod-signing-key within 8 hops."""
+    paths = client.discover_attack_paths("ci-runner-07", max_hops=8)
     assert isinstance(paths, list)
-    assert len(paths) == 3
+    assert len(paths) == 2
 
     for p in paths:
         assert isinstance(p, AttackPath)
-        assert p.hops == 5
-        assert p.node_ids[0] == "ci_runner"
-        assert p.node_ids[-1] == "signing_key"
-        assert len(p.node_ids) == 6
-        assert len(p.mechanisms) == 5
-        assert len(p.evidence_ids) == 5
+        assert p.hops == 4
+        assert p.node_ids[0] == "ci-runner-07"
+        assert p.node_ids[-1] == "prod-signing-key"
+        assert len(p.node_ids) == 5
+        assert len(p.mechanisms) == 4
+        assert len(p.evidence_ids) == 4
 
 
 def test_path_correctness_and_expected_entities(client):
-    """All 3 paths contain expected entities and follow active directed ATTACK_STEP relationships."""
-    paths = client.discover_attack_paths("ci_runner")
+    """All 2 paths contain expected entities and follow active directed ATTACK_STEP relationships."""
+    paths = client.discover_attack_paths("ci-runner-07")
     path_nodes = [p.node_ids for p in paths]
 
-    expected_1 = ["ci_runner", "artifact_token", "artifact_registry", "release_controller", "signer_role", "signing_key"]
-    expected_2 = ["ci_runner", "deploy_token", "legacy_release_session", "release_controller", "signer_role", "signing_key"]
-    expected_3 = ["ci_runner", "deploy_token", "production_deploy_role", "release_controller", "signer_role", "signing_key"]
+    expected_1 = ["ci-runner-07", "tok-artifact-rw", "pkg-registry-core", "release-controller", "prod-signing-key"]
+    expected_2 = ["ci-runner-07", "tok-deploy-alpha", "role-cloud-deployer", "release-controller", "prod-signing-key"]
 
     assert expected_1 in path_nodes
     assert expected_2 in path_nodes
-    assert expected_3 in path_nodes
 
 
 def test_evidence_integrity(client):
     """Returned edge mechanisms and evidence IDs match those seeded in FalkorDB."""
-    paths = client.discover_attack_paths("ci_runner")
-    artifact_path = next(p for p in paths if "artifact_token" in p.node_ids)
+    paths = client.discover_attack_paths("ci-runner-07")
+    artifact_path = next(p for p in paths if "tok-artifact-rw" in p.node_ids)
 
     # Check evidence IDs along the artifact path
-    assert artifact_path.evidence_ids == ["E-004", "E-005", "E-006", "E-009", "E-010"]
-    assert artifact_path.mechanisms[0] == "Compromised runner can access registry credential"
-    assert artifact_path.mechanisms[1] == "Credential has artifact publish permission"
-    assert artifact_path.mechanisms[2] == "Controller consumes registry artifacts"
-    assert artifact_path.mechanisms[3] == "Release controller can request signing"
-    assert artifact_path.mechanisms[4] == "Signing role can use production key"
+    assert artifact_path.evidence_ids == ["E-002", "E-005", "E-007", "E-008"]
+    assert artifact_path.mechanisms[0] == "Compromised runner accesses artifact token"
+    assert artifact_path.mechanisms[1] == "Artifact token publishes to package registry"
+    assert artifact_path.mechanisms[2] == "Package registry consumed by release controller"
+    assert artifact_path.mechanisms[3] == "Release controller accesses production signing key"
 
 
 def test_native_betweenness_centrality(client):
@@ -86,61 +83,58 @@ def test_native_betweenness_centrality(client):
         assert isinstance(item.score, float)
         assert item.score >= 0.0
 
-    # release_controller and signer_role are prominent bridge nodes
+    # release-controller is the primary choke point
     top_node_ids = [c.id for c in centrality[:2]]
-    assert "release_controller" in top_node_ids
+    assert "release-controller" in top_node_ids
 
 
 def test_candidate_retrieval_and_costs(client):
     """Candidate costs are read live from FalkorDB and exclude source and crown jewel."""
-    paths = client.discover_attack_paths("ci_runner")
+    paths = client.discover_attack_paths("ci-runner-07")
     all_path_nodes = sorted(list({node_id for p in paths for node_id in p.node_ids}))
 
-    candidates = client.get_cut_candidates(all_path_nodes, source_id="ci_runner")
+    candidates = client.get_cut_candidates(all_path_nodes, source_id="ci-runner-07")
     cand_dict = {c.id: c.cost for c in candidates}
 
     # Protected endpoints must NOT be in candidates
-    assert "ci_runner" not in cand_dict
-    assert "signing_key" not in cand_dict
+    assert "ci-runner-07" not in cand_dict
+    assert "prod-signing-key" not in cand_dict
 
-    # Verified live costs
-    assert cand_dict["deploy_token"] == 2
-    assert cand_dict["artifact_token"] == 3
-    assert cand_dict["legacy_release_session"] == 4
-    assert cand_dict["production_deploy_role"] == 6
-    assert cand_dict["artifact_registry"] == 7
-    assert cand_dict["signer_role"] == 8
-    assert cand_dict["release_controller"] == 10
+    # Verified live costs (dynamic service impact / blast radius)
+    assert cand_dict["tok-deploy-alpha"] == 2
+    assert cand_dict["tok-artifact-rw"] == 3
+    assert cand_dict["role-cloud-deployer"] == 5
+    assert cand_dict["pkg-registry-core"] == 3
+    assert cand_dict["release-controller"] == 14
 
 
 def test_sandbox_verification(client):
     """
     Shadow-graph zero-path verification:
-    - Excluding {deploy_token, artifact_token} returns 0 remaining paths.
-    - Excluding only {deploy_token} leaves the artifact path (1 remaining path).
-    - Excluding only {artifact_token} leaves the two deploy paths (2 remaining paths).
-    - Excluding {release_controller} alone returns 0 remaining paths.
-    - Excluding nothing returns all 3 paths.
+    - Excluding {tok-deploy-alpha, tok-artifact-rw} returns 0 remaining paths.
+    - Excluding only {tok-deploy-alpha} leaves the artifact path (1 remaining path).
+    - Excluding only {tok-artifact-rw} leaves the deploy path (1 remaining path).
+    - Excluding {release-controller} alone returns 0 remaining paths.
+    - Excluding nothing returns all 2 paths.
     """
-    # Pristine: all 3 active
-    assert client.count_remaining_paths("ci_runner", []) == 3
+    # Pristine: all 2 active
+    assert client.count_remaining_paths("ci-runner-07", []) == 2
 
     # Both tokens severed -> exactly 0 paths
-    assert client.count_remaining_paths("ci_runner", ["deploy_token", "artifact_token"]) == 0
+    assert client.count_remaining_paths("ci-runner-07", ["tok-deploy-alpha", "tok-artifact-rw"]) == 0
 
-    # Only deploy_token severed -> 1 path remaining (artifact route)
-    assert client.count_remaining_paths("ci_runner", ["deploy_token"]) == 1
+    # Only tok-deploy-alpha severed -> 1 path remaining (artifact route)
+    assert client.count_remaining_paths("ci-runner-07", ["tok-deploy-alpha"]) == 1
 
-    # Only artifact_token severed -> 2 paths remaining (deploy routes)
-    assert client.count_remaining_paths("ci_runner", ["artifact_token"]) == 2
+    # Only tok-artifact-rw severed -> 1 path remaining (deploy route)
+    assert client.count_remaining_paths("ci-runner-07", ["tok-artifact-rw"]) == 1
 
-    # release_controller severed -> 0 paths remaining
-    assert client.count_remaining_paths("ci_runner", ["release_controller"]) == 0
+    # release-controller severed -> 0 paths remaining
+    assert client.count_remaining_paths("ci-runner-07", ["release-controller"]) == 0
 
 
 def test_database_failure_handling():
     """Unreachable FalkorDB host surfaces explicit connection error rather than fake empty result."""
     bad_client = FalkorGraphClient(host="127.0.0.1", port=6378, graph_name="nonexistent")
     with pytest.raises(Exception):
-        bad_client.discover_attack_paths("ci_runner")
-
+        bad_client.discover_attack_paths("ci-runner-07")

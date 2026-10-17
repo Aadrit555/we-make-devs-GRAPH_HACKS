@@ -72,7 +72,7 @@ MATCH p =
     -[:ATTACK_STEP*1..8]->
     (target:Entity {criticality: 'crown_jewel'})
 WHERE ALL(r IN relationships(p) WHERE r.active = true)
-  AND ALL(n IN nodes(p) WHERE n.status <> 'disabled')
+  AND ALL(n IN nodes(p) WHERE n.status <> 'disabled' AND n.status <> 'isolated')
 RETURN
     [n IN nodes(p) | n.id] AS node_ids,
     [n IN nodes(p) | n.name] AS node_names,
@@ -90,7 +90,7 @@ MATCH p =
     -[:ATTACK_STEP*1..8]->
     (target:Entity {id: $target_id})
 WHERE ALL(r IN relationships(p) WHERE r.active = true)
-  AND ALL(n IN nodes(p) WHERE n.status <> 'disabled')
+  AND ALL(n IN nodes(p) WHERE n.status <> 'disabled' AND n.status <> 'isolated')
 RETURN
     [n IN nodes(p) | n.id] AS node_ids,
     [n IN nodes(p) | n.name] AS node_names,
@@ -124,7 +124,7 @@ MATCH
 OPTIONAL MATCH p =
     (src)-[:ATTACK_STEP*1..8]->(target)
 WHERE ALL(r IN relationships(p) WHERE r.active = true)
-  AND ALL(n IN nodes(p) WHERE n.status <> 'disabled')
+  AND ALL(n IN nodes(p) WHERE n.status <> 'disabled' AND n.status <> 'isolated')
   AND NONE(n IN nodes(p) WHERE n.id IN $severed_ids)
 RETURN count(p) AS remaining_path_count
 """
@@ -137,7 +137,7 @@ MATCH
 OPTIONAL MATCH p =
     (src)-[:ATTACK_STEP*1..8]->(target)
 WHERE ALL(r IN relationships(p) WHERE r.active = true)
-  AND ALL(n IN nodes(p) WHERE n.status <> 'disabled')
+  AND ALL(n IN nodes(p) WHERE n.status <> 'disabled' AND n.status <> 'isolated')
   AND NONE(n IN nodes(p) WHERE n.id IN $severed_ids)
 RETURN count(p) AS remaining_path_count
 """
@@ -147,6 +147,7 @@ QUERY_CUT_CANDIDATES = """
 MATCH (n:Entity)
 WHERE n.id IN $path_node_ids
   AND n.status <> 'disabled'
+  AND n.status <> 'isolated'
   AND n.criticality <> 'crown_jewel'
   AND n.id <> $source_id
 RETURN
@@ -159,11 +160,11 @@ RETURN
 ORDER BY cost ASC, id ASC
 """
 
-# Query 5A: Mark chosen nodes disabled
+# Query 5A: Mark chosen nodes isolated
 QUERY_DISABLE_NODES = """
 UNWIND $blocked_ids AS blocked_id
 MATCH (n:Entity {id: blocked_id})
-SET n.status = 'disabled'
+SET n.status = 'isolated'
 RETURN collect(n.id) AS disabled_ids, count(n) AS updated_count
 """
 
@@ -198,7 +199,7 @@ ORDER BY blast_radius_cost ASC, entity_id ASC
 """
 
 # Query 7: Cloning & Mirror Sandbox Queries (100% Parameterized)
-QUERY_ALL_NODES = """
+QUERY_ALL_ENTITIES = """
 MATCH (n:Entity)
 RETURN
     n.id AS id,
@@ -207,28 +208,48 @@ RETURN
     n.criticality AS criticality,
     n.cost AS cost,
     n.revenue_impact_score AS revenue_impact_score,
-    n.status AS status,
-    labels(n) AS labels
+    n.status AS status
 ORDER BY n.id ASC
 """
 
-QUERY_ALL_EDGES = """
-MATCH (a:Entity)-[r]->(b:Entity)
+QUERY_ALL_SERVICES = """
+MATCH (s:Service)
+RETURN
+    s.id AS id,
+    s.name AS name,
+    s.kind AS kind,
+    s.criticality AS criticality,
+    s.cost AS cost,
+    s.revenue_impact_score AS revenue_impact_score,
+    s.status AS status
+ORDER BY s.id ASC
+"""
+
+QUERY_ALL_ATTACK_EDGES = """
+MATCH (a:Entity)-[r:ATTACK_STEP]->(b:Entity)
 RETURN
     a.id AS src_id,
     b.id AS dst_id,
-    type(r) AS rel_type,
     r.active AS active,
     r.mechanism AS mechanism,
     r.evidence_id AS evidence_id
-ORDER BY a.id ASC, b.id ASC, rel_type ASC
+ORDER BY a.id ASC, b.id ASC
+"""
+
+QUERY_ALL_DEPENDS_ON_EDGES = """
+MATCH (a:Service)-[r:DEPENDS_ON]->(b:Entity)
+RETURN
+    a.id AS src_id,
+    b.id AS dst_id,
+    r.purpose AS purpose
+ORDER BY a.id ASC, b.id ASC
 """
 
 QUERY_CLONE_RESET = """
 MATCH (n) DETACH DELETE n
 """
 
-QUERY_CLONE_CREATE_NODES = """
+QUERY_CLONE_CREATE_ENTITIES = """
 UNWIND $nodes AS nd
 CREATE (n:Entity {
     id: nd.id,
@@ -241,10 +262,17 @@ CREATE (n:Entity {
 })
 """
 
-QUERY_CLONE_SET_SERVICES = """
-UNWIND $service_ids AS sid
-MATCH (n:Entity {id: sid})
-SET n:Service
+QUERY_CLONE_CREATE_SERVICES = """
+UNWIND $services AS s
+CREATE (n:Service {
+    id: s.id,
+    name: s.name,
+    kind: s.kind,
+    criticality: s.criticality,
+    cost: s.cost,
+    revenue_impact_score: s.revenue_impact_score,
+    status: s.status
+})
 """
 
 QUERY_CLONE_CREATE_ATTACK_EDGES = """
@@ -260,9 +288,11 @@ CREATE (a)-[:ATTACK_STEP {
 
 QUERY_CLONE_CREATE_DEPENDS_ON_EDGES = """
 UNWIND $deps AS dp
-MATCH (a:Entity {id: dp.src})
+MATCH (a:Service {id: dp.src})
 MATCH (b:Entity {id: dp.dst})
-CREATE (a)-[:DEPENDS_ON]->(b)
+CREATE (a)-[:DEPENDS_ON {
+    purpose: dp.purpose
+}]->(b)
 """
 
 # Query 8: Cryptographic State Hash Queries
@@ -452,24 +482,37 @@ class FalkorGraphClient:
             ))
         return paths
 
+    def find_attack_paths(
+        self,
+        source_id: str,
+        target_id: Optional[str] = None,
+        max_hops: int = 8
+    ) -> List[AttackPath]:
+        """Alias for discover_attack_paths to support standard graph engine naming."""
+        return self.discover_attack_paths(source_id=source_id, target_id=target_id, max_hops=max_hops)
+
     def get_betweenness_centrality(self) -> List[CentralityScore]:
         """
         Query 2: Execute native FalkorDB betweenness centrality procedure over ATTACK_STEP.
-        Returns live centrality scores ordered descending.
+        Returns live centrality scores ordered descending, normalized so top score is 1.0.
         """
         res = self._execute_query(QUERY_BETWEENNESS_CENTRALITY, read_only=True)
 
+        records = res.result_set or []
+        max_score = max((float(r[3]) for r in records), default=0.0)
+
         centrality_list: List[CentralityScore] = []
-        for record in res.result_set:
+        for record in records:
             node_id = record[0]
             name = record[1]
             kind = record[2]
-            score = float(record[3])
+            raw_score = float(record[3])
+            normalized_score = round(raw_score / max_score, 4) if max_score > 0 else 0.0
             centrality_list.append(CentralityScore(
                 id=node_id,
                 name=name,
                 kind=kind,
-                score=score
+                score=normalized_score
             ))
         return centrality_list
 
@@ -630,18 +673,20 @@ class FalkorGraphClient:
     # Multi-Graph "Smoking Mirror" Sandbox Cloning & Simulation
     # --------------------------------------------------------------------------
 
-    def clone_to_mirror(self, mirror_graph_name: Optional[str] = None) -> "FalkorGraphClient":
+    def clone_prod_to_mirror(self, mirror_graph_name: Optional[str] = None) -> "FalkorGraphClient":
         """
-        Clones active topology from production graph into an isolated FalkorDB graph
-        (e.g., 'tezcatl_mirror') using 100% parameterized queries.
+        Query all live :Entity and :Service nodes and all live :ATTACK_STEP and :DEPENDS_ON
+        relationships from prod_graph, wipe tezcatl_mirror, and recreate the exact live state.
         """
         target_name = mirror_graph_name or DEFAULT_MIRROR_GRAPH
         if target_name == self.graph_name:
             raise ValueError("Mirror graph name cannot match production graph name.")
 
-        # Read active nodes and relationships from production
-        nodes_res = self._execute_query(QUERY_ALL_NODES, read_only=True)
-        edges_res = self._execute_query(QUERY_ALL_EDGES, read_only=True)
+        # Read live nodes and relationships from production
+        entities_res = self._execute_query(QUERY_ALL_ENTITIES, read_only=True)
+        services_res = self._execute_query(QUERY_ALL_SERVICES, read_only=True)
+        attack_res = self._execute_query(QUERY_ALL_ATTACK_EDGES, read_only=True)
+        deps_res = self._execute_query(QUERY_ALL_DEPENDS_ON_EDGES, read_only=True)
 
         mirror_client = FalkorGraphClient(host=self.host, port=self.port, graph_name=target_name)
         mirror_client.connect()
@@ -649,11 +694,9 @@ class FalkorGraphClient:
         # 1. Clear target mirror graph
         mirror_client._execute_query(QUERY_CLONE_RESET, read_only=False)
 
-        # 2. Prepare nodes payload
-        nodes_payload = []
-        service_ids = []
-        for r in nodes_res.result_set:
-            node_dict = {
+        # 2. Recreate Entity nodes
+        entities_payload = [
+            {
                 "id": r[0],
                 "name": r[1],
                 "kind": r[2],
@@ -662,49 +705,64 @@ class FalkorGraphClient:
                 "revenue_impact_score": int(r[5]) if r[5] is not None else 0,
                 "status": r[6]
             }
-            nodes_payload.append(node_dict)
-            labels = r[7] if len(r) > 7 and r[7] else []
-            if "Service" in labels:
-                service_ids.append(r[0])
+            for r in (entities_res.result_set or [])
+        ]
+        if entities_payload:
+            mirror_client._execute_query(QUERY_CLONE_CREATE_ENTITIES, {"nodes": entities_payload}, read_only=False)
 
-        if nodes_payload:
-            mirror_client._execute_query(QUERY_CLONE_CREATE_NODES, {"nodes": nodes_payload}, read_only=False)
+        # 3. Recreate Service nodes
+        services_payload = [
+            {
+                "id": r[0],
+                "name": r[1],
+                "kind": r[2],
+                "criticality": r[3],
+                "cost": int(r[4]),
+                "revenue_impact_score": int(r[5]) if r[5] is not None else 0,
+                "status": r[6]
+            }
+            for r in (services_res.result_set or [])
+        ]
+        if services_payload:
+            mirror_client._execute_query(QUERY_CLONE_CREATE_SERVICES, {"services": services_payload}, read_only=False)
 
-        if service_ids:
-            mirror_client._execute_query(QUERY_CLONE_SET_SERVICES, {"service_ids": service_ids}, read_only=False)
+        # 4. Recreate ATTACK_STEP relationships (including live injected bypass edges)
+        attack_payload = [
+            {
+                "src": r[0],
+                "dst": r[1],
+                "active": bool(r[2]),
+                "mechanism": r[3] or "",
+                "evidence_id": r[4] or ""
+            }
+            for r in (attack_res.result_set or [])
+        ]
+        if attack_payload:
+            mirror_client._execute_query(QUERY_CLONE_CREATE_ATTACK_EDGES, {"edges": attack_payload}, read_only=False)
 
-        # 3. Prepare edges payload
-        attack_edges = []
-        deps_edges = []
-        for r in edges_res.result_set:
-            src_id, dst_id, rel_type, active, mechanism, evidence_id = r
-            if rel_type == "ATTACK_STEP":
-                attack_edges.append({
-                    "src": src_id,
-                    "dst": dst_id,
-                    "active": bool(active),
-                    "mechanism": mechanism or "",
-                    "evidence_id": evidence_id or ""
-                })
-            elif rel_type == "DEPENDS_ON":
-                deps_edges.append({
-                    "src": src_id,
-                    "dst": dst_id
-                })
-
-        if attack_edges:
-            mirror_client._execute_query(QUERY_CLONE_CREATE_ATTACK_EDGES, {"edges": attack_edges}, read_only=False)
-
-        if deps_edges:
-            mirror_client._execute_query(QUERY_CLONE_CREATE_DEPENDS_ON_EDGES, {"deps": deps_edges}, read_only=False)
+        # 5. Recreate DEPENDS_ON relationships
+        deps_payload = [
+            {
+                "src": r[0],
+                "dst": r[1],
+                "purpose": r[2] or ""
+            }
+            for r in (deps_res.result_set or [])
+        ]
+        if deps_payload:
+            mirror_client._execute_query(QUERY_CLONE_CREATE_DEPENDS_ON_EDGES, {"deps": deps_payload}, read_only=False)
 
         return mirror_client
 
-    def simulate_mirror_containment(
+    def clone_to_mirror(self, mirror_graph_name: Optional[str] = None) -> "FalkorGraphClient":
+        """Alias for clone_prod_to_mirror."""
+        return self.clone_prod_to_mirror(mirror_graph_name=mirror_graph_name)
+
+    def verify_in_smoking_mirror(
         self,
         blocked_ids: List[str],
-        source_id: str = "ci_runner",
-        target_id: Optional[str] = None,
+        source_id: str = "ci-runner-07",
+        target_id: Optional[str] = "prod-signing-key",
         max_hops: int = 8,
         mirror_graph_name: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -717,13 +775,13 @@ class FalkorGraphClient:
         target_name = mirror_graph_name or DEFAULT_MIRROR_GRAPH
 
         # 1. Clone production to mirror
-        mirror_client = self.clone_to_mirror(mirror_graph_name=target_name)
+        mirror_client = self.clone_prod_to_mirror(mirror_graph_name=target_name)
 
-        # 2. Mutate mirror only
+        # 2. Mutate mirror only (set status = 'isolated')
         mutation_result = mirror_client.apply_containment_action(blocked_ids)
 
         # 3. Discover remaining paths in mirror
-        mirror_paths = mirror_client.discover_attack_paths(
+        mirror_paths = mirror_client.find_attack_paths(
             source_id=source_id,
             target_id=target_id,
             max_hops=max_hops
@@ -745,6 +803,47 @@ class FalkorGraphClient:
             "verified_contained": len(mirror_paths) == 0,
             "telemetry": mirror_client.last_telemetry
         }
+
+    def simulate_mirror_containment(self, blocked_ids: List[str], **kwargs) -> Dict[str, Any]:
+        """Alias for verify_in_smoking_mirror."""
+        return self.verify_in_smoking_mirror(blocked_ids=blocked_ids, **kwargs)
+
+    def get_full_topology(self, graph_name: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Query FalkorDB for all live :Entity nodes and :ATTACK_STEP edges
+        so the frontend SVG visualizer renders 100% database-driven topology.
+        """
+        target_name = graph_name or self.graph_name
+        client = self if target_name == self.graph_name else FalkorGraphClient(host=self.host, port=self.port, graph_name=target_name)
+
+        nodes_q = "MATCH (n:Entity) RETURN n.id, n.name, n.kind, n.criticality, n.cost, n.status ORDER BY n.id ASC"
+        edges_q = "MATCH (a:Entity)-[r:ATTACK_STEP]->(b:Entity) RETURN a.id, b.id, r.active, r.mechanism, r.evidence_id ORDER BY a.id, b.id"
+
+        nodes_res = client._execute_query(nodes_q, read_only=True)
+        edges_res = client._execute_query(edges_q, read_only=True)
+
+        nodes = [
+            {
+                "id": r[0],
+                "name": r[1],
+                "kind": r[2],
+                "criticality": r[3],
+                "cost": int(r[4]),
+                "status": r[5]
+            }
+            for r in (nodes_res.result_set or [])
+        ]
+        edges = [
+            {
+                "source": r[0],
+                "target": r[1],
+                "active": bool(r[2]),
+                "mechanism": r[3] or "",
+                "evidence_id": r[4] or ""
+            }
+            for r in (edges_res.result_set or [])
+        ]
+        return {"nodes": nodes, "edges": edges}
 
     # --------------------------------------------------------------------------
     # Cryptographic State Hash
@@ -879,6 +978,17 @@ class ReadOnlyGraphClient:
         max_hops: int = 8
     ) -> List[AttackPath]:
         return self._client.discover_attack_paths(source_id=source_id, target_id=target_id, max_hops=max_hops)
+
+    def find_attack_paths(
+        self,
+        source_id: str,
+        target_id: Optional[str] = None,
+        max_hops: int = 8
+    ) -> List[AttackPath]:
+        return self._client.find_attack_paths(source_id=source_id, target_id=target_id, max_hops=max_hops)
+
+    def get_full_topology(self, graph_name: Optional[str] = None) -> Dict[str, Any]:
+        return self._client.get_full_topology(graph_name=graph_name)
 
     def get_betweenness_centrality(self) -> List[CentralityScore]:
         return self._client.get_betweenness_centrality()

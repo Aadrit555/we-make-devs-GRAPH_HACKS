@@ -128,8 +128,15 @@ def compute_minimum_cost_cut(
     total_paths = len(normalized_path_sets)
     all_path_indices = set(range(total_paths))
 
+    # Compute hop distance from source for each candidate to prioritize containment closest to ingress
+    candidate_hop_dist: Dict[str, int] = {}
+    for p in attack_paths:
+        for idx, nid in enumerate(p):
+            if nid not in candidate_hop_dist or idx < candidate_hop_dist[nid]:
+                candidate_hop_dist[nid] = idx
+
     # 7. Combinatorial search for minimum-cost vertex cut
-    valid_cuts: List[Tuple[int, int, Tuple[str, ...]]] = []
+    valid_cuts: List[Tuple[int, int, int, Tuple[str, ...]]] = []
 
     for r in range(1, len(eligible_candidates) + 1):
         for combo in combinations(eligible_candidates, r):
@@ -139,8 +146,9 @@ def compute_minimum_cost_cut(
 
             if covered_indices == all_path_indices:
                 cost = sum(candidate_costs[cand] for cand in combo)
+                hop_sum = sum(candidate_hop_dist.get(cand, 99) for cand in combo)
                 sorted_combo = tuple(sorted(combo))
-                valid_cuts.append((cost, len(combo), sorted_combo))
+                valid_cuts.append((cost, len(combo), hop_sum, sorted_combo))
 
     # 8. Check if any valid cut exists
     if not valid_cuts:
@@ -149,9 +157,9 @@ def compute_minimum_cost_cut(
             f"(Protected nodes: {sorted(list(protected_nodes))})"
         )
 
-    # 9. Deterministic tie-breaking: minimum cost, then smallest cardinality, then lexicographical order
-    valid_cuts.sort(key=lambda item: (item[0], item[1], item[2]))
-    best_cost, best_count, best_tuple = valid_cuts[0]
+    # 9. Deterministic tie-breaking: minimum cost, smallest cardinality, ingress proximity, lexicographical
+    valid_cuts.sort(key=lambda item: (item[0], item[1], item[2], item[3]))
+    best_cost, best_count, best_hop_sum, best_tuple = valid_cuts[0]
     selected_ids = list(best_tuple)
 
     # 10. Assemble structured output

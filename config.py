@@ -18,8 +18,8 @@ class Settings(BaseModel):
     falkordb_mirror_graph: str = Field(
         default_factory=lambda: os.getenv("TEZCATL_MIRROR_GRAPH", os.getenv("FALKORDB_MIRROR_GRAPH", "tezcatl_mirror"))
     )
-    tezcatl_source_id: str = Field(default_factory=lambda: os.getenv("TEZCATL_SOURCE_ID", "ci_runner"))
-    tezcatl_target_id: str = Field(default_factory=lambda: os.getenv("TEZCATL_TARGET_ID", "signing_key"))
+    tezcatl_source_id: str = Field(default_factory=lambda: os.getenv("TEZCATL_SOURCE_ID", "ci-runner-07"))
+    tezcatl_target_id: str = Field(default_factory=lambda: os.getenv("TEZCATL_TARGET_ID", "prod-signing-key"))
     tezcatl_max_hops: int = Field(default_factory=lambda: int(os.getenv("TEZCATL_MAX_HOPS", "8")))
 
     @property

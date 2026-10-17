@@ -61,33 +61,31 @@ FRONTEND_PATH = os.path.join(os.path.dirname(__file__), "frontend", "index.html"
 
 def resolve_entity_id(raw_id: str) -> str:
     """Normalize user-facing dropdown aliases and stylized entity names."""
-    clean = raw_id.strip().lower()
+    clean = raw_id.strip()
     mapping = {
-        "ci-runner-07": "ci_runner",
-        "ci_runner": "ci_runner",
-        "cirunner": "ci_runner",
-        "runner": "ci_runner",
-        "staging-worker-02": "staging_deployer",
-        "staging_worker": "staging_deployer",
-        "staging_deployer": "staging_deployer",
-        "tok-deploy-alpha": "deploy_token",
-        "deploy_token": "deploy_token",
-        "tok-artifact-rw": "artifact_token",
-        "artifact_token": "artifact_token",
-        "role-cloud-deployer": "production_deploy_role",
-        "production_deploy_role": "production_deploy_role",
-        "pkg-registry-core": "artifact_registry",
-        "artifact_registry": "artifact_registry",
-        "session-legacy-deploy": "legacy_release_session",
-        "legacy_release_session": "legacy_release_session",
-        "release-controller": "release_controller",
-        "release_controller": "release_controller",
-        "role-release-signer": "signer_role",
-        "signer_role": "signer_role",
-        "prod-signing-key": "signing_key",
-        "signing_key": "signing_key",
+        "ci_runner": "ci-runner-07",
+        "cirunner": "ci-runner-07",
+        "runner": "ci-runner-07",
+        "ci-runner-07": "ci-runner-07",
+        "staging_worker": "staging-worker-02",
+        "staging_deployer": "staging-worker-02",
+        "staging-worker-02": "staging-worker-02",
+        "deploy_token": "tok-deploy-alpha",
+        "tok-deploy-alpha": "tok-deploy-alpha",
+        "artifact_token": "tok-artifact-rw",
+        "tok-artifact-rw": "tok-artifact-rw",
+        "production_deploy_role": "role-cloud-deployer",
+        "role-cloud-deployer": "role-cloud-deployer",
+        "artifact_registry": "pkg-registry-core",
+        "pkg-registry-core": "pkg-registry-core",
+        "release_controller": "release-controller",
+        "release-controller": "release-controller",
+        "signer_role": "release-controller",
+        "role-release-signer": "release-controller",
+        "signing_key": "prod-signing-key",
+        "prod-signing-key": "prod-signing-key",
     }
-    return mapping.get(clean, clean.replace("-", "_"))
+    return mapping.get(clean, clean)
 
 
 # ==============================================================================
@@ -95,16 +93,16 @@ def resolve_entity_id(raw_id: str) -> str:
 # ==============================================================================
 
 class InvestigateRequest(BaseModel):
-    source_id: str = Field(default="ci_runner")
-    target_id: Optional[str] = Field(default="signing_key")
+    source_id: str = Field(default="ci-runner-07")
+    target_id: Optional[str] = Field(default="prod-signing-key")
     max_hops: int = Field(default=8, ge=1, le=8)
     exclude_ids: List[str] = Field(default_factory=list)
     raw_query: str = Field(default="")
 
 
 class ContainRequest(BaseModel):
-    source_id: str = Field(default="ci_runner")
-    target_id: str = Field(default="signing_key")
+    source_id: str = Field(default="ci-runner-07")
+    target_id: str = Field(default="prod-signing-key")
     cut_node_ids: Optional[List[str]] = None
     cut_nodes: Optional[List[str]] = None
     blast_cost: Optional[int] = 0
@@ -114,13 +112,13 @@ class ContainRequest(BaseModel):
 
 class StressBypassRequest(BaseModel):
     action: str = Field(default="inject", pattern=r"^(inject|remove)$")
-    source_id: str = Field(default="ci_runner")
-    target_id: str = Field(default="signing_key")
-    evidence_id: str = Field(default="E-BYPASS-STRESS")
+    source_id: str = Field(default="ci-runner-07")
+    target_id: str = Field(default="release-controller")
+    evidence_id: str = Field(default="EV-999")
 
 
 class MutateBypassRequest(BaseModel):
-    source_id: str = Field(default="ci_runner")
+    source_id: str = Field(default="ci-runner-07")
 
 
 class StressCostRequest(BaseModel):
@@ -173,19 +171,20 @@ def get_health():
 
 
 @app.get("/api/state")
-def get_graph_state(source_id: str = Query(default="ci_runner")):
+def get_graph_state(source_id: str = Query(default="ci-runner-07")):
     """
     Returns full structured state for the interactive workspace console:
     - Active path count and discovered variable-length routes (*1..8)
     - Ranked betweenness centrality & dynamic service blast costs
     - Minimum-cut solution verified in tezcatl_mirror sandbox
     - Live OpenCypher query telemetry
+    - Full live database topology for dynamic SVG rendering
     """
     resolved_source = resolve_entity_id(source_id)
     try:
         analysis, stages = agent.run_investigation(
             override_source=resolved_source,
-            override_target="signing_key",
+            override_target="prod-signing-key",
             override_hops=8,
             run_mirror_sim=True,
         )
@@ -242,6 +241,7 @@ def get_graph_state(source_id: str = Query(default="ci_runner")):
             },
             "mirror_proof": analysis.mirror_simulation,
             "telemetry": telemetry_data,
+            "topology": graph_client.get_full_topology(settings.falkordb_graph),
             "graph_is_contained": analysis.graph_is_contained,
             "pre_mitigation_hash": analysis.pre_mitigation_hash,
         }
@@ -341,18 +341,19 @@ def toggle_mutate_bypass(req: MutateBypassRequest):
     resolved_source = resolve_entity_id(req.source_id)
     try:
         # Check if bypass exists
-        check_q = "MATCH ()-[r:ATTACK_STEP {evidence_id: $ev}]->() RETURN count(r) AS cnt"
-        res = graph_client._execute_query(check_q, {"ev": "E-BYPASS-STRESS"}, read_only=True)
+        check_q = "MATCH ()-[r:ATTACK_STEP]->() WHERE r.evidence_id IN ['EV-999', 'E-BYPASS-STRESS'] RETURN count(r) AS cnt"
+        res = graph_client._execute_query(check_q, read_only=True)
         exists = int(res.result_set[0][0]) if res.result_set else 0
 
         if exists > 0:
-            deleted = graph_client.remove_bypass_edge("E-BYPASS-STRESS")
-            return {"status": "SUCCESS", "action": "removed", "edges_deleted": deleted}
+            deleted_1 = graph_client.remove_bypass_edge("EV-999")
+            deleted_2 = graph_client.remove_bypass_edge("E-BYPASS-STRESS")
+            return {"status": "SUCCESS", "action": "removed", "edges_deleted": deleted_1.updated_edge_count + deleted_2.updated_edge_count}
         else:
             created = graph_client.inject_bypass_edge(
                 source_id=resolved_source,
-                target_id="signing_key",
-                evidence_id="E-BYPASS-STRESS",
+                target_id="release-controller",
+                evidence_id="EV-999",
             )
             return {"status": "SUCCESS", "action": "injected", "edges_created": created}
     except Exception as exc:
@@ -366,7 +367,7 @@ def toggle_bypass_route(req: StressBypassRequest):
         if req.action == "inject":
             created = graph_client.inject_bypass_edge(
                 source_id=resolve_entity_id(req.source_id),
-                target_id=req.target_id,
+                target_id=resolve_entity_id(req.target_id),
                 evidence_id=req.evidence_id,
             )
             return {"action": "injected", "edges_created": created}

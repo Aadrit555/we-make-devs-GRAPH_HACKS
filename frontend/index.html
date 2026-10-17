@@ -976,7 +976,8 @@
           TEZCATL
         </div>
         <h2 class="brand__title">Graph-native breach containment for cloud infrastructure</h2>
-        <p class="brand__text">TEZCATL traces multi-hop lateral movement in FalkorDB, calculates downstream service impact, and tests minimum-cost node isolation in a shadow graph before updating production.</p>
+        <p class="brand__text">TEZCATL traces multi-hop lateral movement in FalkorDB, calculates downstream service
+          impact, and tests minimum-cost node isolation in a shadow graph before updating production.</p>
         <button class="brand__cta" onclick="openFeatureSheet('tab-topo')">
           Open Graph Console
         </button>
@@ -1052,9 +1053,12 @@
         </div>
 
         <nav class="sheet-tabs" role="tablist">
-          <button class="tab-btn active" data-tab="tab-topo" onclick="switchTab('tab-topo')">01 Attack Paths (*1..8)</button>
-          <button class="tab-btn" data-tab="tab-matrix" onclick="switchTab('tab-matrix')">02 Centrality & Service Impact</button>
-          <button class="tab-btn" data-tab="tab-sandbox" onclick="switchTab('tab-sandbox')">03 Shadow Graph (tezcatl_mirror)</button>
+          <button class="tab-btn active" data-tab="tab-topo" onclick="switchTab('tab-topo')">01 Attack Paths
+            (*1..8)</button>
+          <button class="tab-btn" data-tab="tab-matrix" onclick="switchTab('tab-matrix')">02 Centrality & Service
+            Impact</button>
+          <button class="tab-btn" data-tab="tab-sandbox" onclick="switchTab('tab-sandbox')">03 Shadow Graph
+            (tezcatl_mirror)</button>
           <button class="tab-btn" data-tab="tab-cypher" onclick="switchTab('tab-cypher')">04 Cypher Query Log</button>
         </nav>
 
@@ -1062,6 +1066,11 @@
           Close <span style="font-family:var(--mono); font-size:10px; color:var(--muted);">[Esc]</span>
         </button>
       </header>
+
+      <!-- Offline Error Banner -->
+      <div id="dbOfflineBanner" style="display:none; width:100%; background:#be123c; color:#ffffff; padding:10px 16px; font-weight:600; font-size:12px; font-family:var(--mono); text-align:center;">
+        FalkorDB Engine Offline — Start backend
+      </div>
 
       <!-- Global Controls Bar -->
       <div class="sheet-controls">
@@ -1548,73 +1557,124 @@
       resetTopology();
     }
 
-    // Deterministic Baseline Fallback Data
-    const BASELINE_DATA = {
-      source_id: "ci_runner",
-      target_id: "signing_key",
-      active_path_count: 3,
-      paths: [
-        {
-          path_id: "ROUTE-1",
-          hops: 5,
-          nodes: [{id:"ci_runner"}, {id:"deploy_token"}, {id:"production_deploy_role"}, {id:"release_controller"}, {id:"signer_role"}, {id:"signing_key"}],
-          evidence_ids: ["EV-001", "EV-002", "EV-003", "EV-009", "EV-010"]
-        },
-        {
-          path_id: "ROUTE-2",
-          hops: 5,
-          nodes: [{id:"ci_runner"}, {id:"artifact_token"}, {id:"artifact_registry"}, {id:"release_controller"}, {id:"signer_role"}, {id:"signing_key"}],
-          evidence_ids: ["EV-004", "EV-005", "EV-006", "EV-009", "EV-010"]
-        },
-        {
-          path_id: "ROUTE-3",
-          hops: 5,
-          nodes: [{id:"ci_runner"}, {id:"deploy_token"}, {id:"legacy_release_session"}, {id:"release_controller"}, {id:"signer_role"}, {id:"signing_key"}],
-          evidence_ids: ["EV-001", "EV-007", "EV-008", "EV-009", "EV-010"]
-        }
-      ],
-      candidates: [
-        { id: "release_controller", centrality: 11.0, blast_cost: 10, services: ["Checkout API", "Auth Gate", "Release Pipeline"] },
-        { id: "signer_role", centrality: 6.0, blast_cost: 8, services: ["Canary Service", "Binary Attestation"] },
-        { id: "artifact_registry", centrality: 3.67, blast_cost: 7, services: ["Deployment Manifest"] },
-        { id: "deploy_token", centrality: 3.33, blast_cost: 2, services: ["Staging Deployer"] },
-        { id: "artifact_token", centrality: 2.0, blast_cost: 3, services: ["Artifact Publisher"] },
-        { id: "legacy_release_session", centrality: 2.17, blast_cost: 4, services: ["Legacy Batch Consumer"] }
-      ],
-      cut_solution: {
-        optimal: {
-          cut_nodes: ["deploy_token", "artifact_token"],
-          cut_names: ["Production Deploy Credential", "Artifact Publish Credential"],
-          blast_cost: 5
-        }
-      },
-      telemetry: [
-        { graph: "prod_graph", execution_ms: 0.42, cypher: "MATCH p = (src:Entity {id: 'ci_runner'})-[:ATTACK_STEP*1..8]->(target:Entity {critilitwn_jewel'}) RETURN p" },
-        { graph: "prod_graph", execution_ms: 1.10, cypher: "CALL algo.betweenness({nodeLabels: ['Entity'], relationshipTypes: ['ATTACK_STEP']}) YIELD node, score" },
-        { graph: "prod_graph", execution_ms: 0.65, cypher: "MATCH (s:Service)-[:DEPENDS_ON*1..4]->(e:Entity) WHERE e.id IN $candidate_ids RETURN e.id, sum(s.revenue_impact_score)" },
-        { graph: "tezcatl_mirror", execution_ms: 1.80, cypher: "OPTIONAL MATCH p = (src)-[:ATTACK_STEP*1..8]->(target) WHERE NONE(n IN nodes(p) WHERE n.id IN $severed_ids) RETURN count(p)" }
-      ]
-    };
-
     async function loadGraphState() {
       const sourceSelect = document.getElementById('sourceSelect');
       const sourceId = sourceSelect ? sourceSelect.value : 'ci-runner-07';
+      const offlineBanner = document.getElementById('dbOfflineBanner');
 
-      let data = null;
       try {
         const res = await fetch(`/api/state?source_id=${encodeURIComponent(sourceId)}`);
-        if (res.ok) {
-          data = await res.json();
+        if (!res.ok) {
+          throw new Error(`FalkorDB state endpoint returned status ${res.status}`);
         }
+        const data = await res.json();
+        if (offlineBanner) offlineBanner.style.display = 'none';
+        renderState(data);
       } catch (err) {
-        console.warn("API state fetch failed, falling back to deterministic graph state:", err);
+        console.error("FalkorDB Engine Offline or unreachable:", err);
+        if (offlineBanner) offlineBanner.style.display = 'block';
+        const statusText = document.getElementById('statusText');
+        const statusDot = document.getElementById('statusDot');
+        if (statusText) statusText.textContent = 'FalkorDB Engine Offline — Start backend';
+        if (statusDot) statusDot.style.background = '#be123c';
       }
+    }
 
-      if (!data || !data.paths) {
-        data = JSON.parse(JSON.stringify(BASELINE_DATA));
-      }
+    function renderTopologySvg(topology, activePaths, optimalCut) {
+      const edgesGroup = document.getElementById('edgesGroup');
+      const nodesGroup = document.getElementById('nodesGroup');
+      if (!edgesGroup || !nodesGroup || !topology || !topology.nodes) return;
 
-      renderState(data);
+      const nodePositions = {
+        "ci-runner-07": { x: 25, y: 80, name: "ci-runner-07", role: "WORKLOAD", w: 95 },
+        "staging-worker-02": { x: 25, y: 220, name: "staging-worker", role: "WORKLOAD", w: 95 },
+        "tok-deploy-alpha": { x: 195, y: 80, name: "tok-deploy", role: "CRED (Cost 2)", w: 90 },
+        "tok-artifact-rw": { x: 195, y: 220, name: "tok-artifact", role: "CRED (Cost 3)", w: 90 },
+        "role-cloud-deployer": { x: 365, y: 80, name: "cloud-deployer", role: "IAM ROLE (6)", w: 95 },
+        "pkg-registry-core": { x: 365, y: 220, name: "pkg-registry", role: "REGISTRY (7)", w: 95 },
+        "release-controller": { x: 535, y: 150, name: "controller", role: "BOTTLENECK (14)", w: 95 },
+        "prod-signing-key": { x: 705, y: 150, name: "signing-key", role: "CROWN JEWEL", w: 90 }
+      };
+
+      const cutNodes = (optimalCut && optimalCut.cut_nodes) || [];
+      const nodes = topology.nodes || [];
+      const edges = topology.edges || [];
+      const isContained = !activePaths || activePaths.length === 0;
+
+      // 1. Draw Edges from FalkorDB live topology
+      edgesGroup.innerHTML = edges.map((e) => {
+        const srcPos = nodePositions[e.source] || { x: 50, y: 100, w: 80 };
+        const dstPos = nodePositions[e.target] || { x: 600, y: 100, w: 80 };
+        const x1 = srcPos.x + srcPos.w;
+        const y1 = srcPos.y + 22;
+        const x2 = dstPos.x;
+        const y2 = dstPos.y + 22;
+
+        const isBypass = e.evidence_id === 'EV-999' || e.evidence_id === 'E-BYPASS-STRESS';
+        const isEdgeActive = e.active && !isContained && !cutNodes.includes(e.source) && !cutNodes.includes(e.target);
+
+        let d;
+        if (isBypass) {
+          d = `M ${x1} ${y1} C 250 20, 430 20, ${x2} ${y2}`;
+        } else {
+          const midX = (x1 + x2) / 2;
+          d = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+        }
+
+        const cls = isEdgeActive ? 'edge-line edge-active' : 'edge-line edge-dimmed';
+        const marker = isEdgeActive ? 'url(#arrow)' : 'url(#arrow-dim)';
+        const bypassStyle = isBypass ? 'stroke:#b45309; stroke-dasharray:6 4; stroke-width:2.2;' : '';
+
+        return `
+          <g>
+            <path id="e-${e.source}-${e.target}" class="${cls}" style="${bypassStyle}" d="${d}" marker-end="${marker}" />
+            ${isBypass ? `<text class="edge-label" x="380" y="32" style="fill:#b45309; font-weight:bold;">STEALTH_BYPASS (EV-999)</text>` : ''}
+          </g>
+        `;
+      }).join('');
+
+      // 2. Draw Nodes from FalkorDB live topology
+      nodesGroup.innerHTML = nodes.map(n => {
+        const pos = nodePositions[n.id] || { x: 100, y: 100, name: n.id, role: n.kind, w: 90 };
+        const isIsolated = n.status === 'isolated' || n.status === 'disabled';
+        const isOptimalCut = cutNodes.includes(n.id);
+        const isCompromised = n.status === 'compromised';
+        const isCrown = n.criticality === 'crown_jewel';
+
+        let stroke = 'rgba(12,12,12,0.18)';
+        let fill = '#f4f4f2';
+        let sub = pos.role;
+
+        if (isIsolated) {
+          stroke = '#15803d';
+          fill = '#dcfce7';
+          sub = 'ISOLATED';
+        } else if (isOptimalCut) {
+          stroke = '#4f46e5';
+          fill = '#e0e7ff';
+          sub = `CUT (Cost: ${n.cost})`;
+        } else if (isCrown) {
+          stroke = '#be123c';
+          fill = '#fee2e2';
+          sub = 'CROWN';
+        } else if (isCompromised) {
+          stroke = '#be123c';
+          fill = '#fee2e2';
+          sub = 'BREACHED';
+        } else if (n.id === 'release-controller') {
+          stroke = '#b45309';
+          fill = '#fef3c7';
+          sub = 'BOTTLENECK (14)';
+        }
+
+        return `
+          <g id="node-${n.id}" transform="translate(${pos.x}, ${pos.y})">
+            <rect class="node-rect" width="${pos.w}" height="44" fill="${fill}" stroke="${stroke}" stroke-width="${isOptimalCut || isIsolated || isCrown ? 1.6 : 1.1}" rx="4" />
+            <text class="node-text" x="${pos.w / 2}" y="20" text-anchor="middle">${pos.name}</text>
+            <text class="node-subtext" x="${pos.w / 2}" y="34" text-anchor="middle" style="${isIsolated ? 'fill:#15803d; font-weight:600;' : (isOptimalCut ? 'fill:#4f46e5; font-weight:600;' : '')}">${sub}</text>
+          </g>
+        `;
+      }).join('');
     }
 
     function renderState(data) {
@@ -1645,13 +1705,19 @@
         prodPathsVal.style.color = isContained ? '#15803d' : '#be123c';
       }
       if (mirrorPathsVal) {
-        mirrorPathsVal.textContent = '0 Routes Remain';
+        const mirrorCount = data.mirror_proof ? (data.mirror_proof.mirror_remaining_count !== undefined ? data.mirror_proof.mirror_remaining_count : 0) : 0;
+        mirrorPathsVal.textContent = `${mirrorCount} Routes Remain`;
       }
 
-      // 3. Topology SVG Visuals
-      updateSvgVisuals(isContained);
+      // 3. Optimal Cut Resolution
+      currentOptimalCut = data.cut_solution ? data.cut_solution.optimal : null;
 
-      // 4. Path Pills
+      // 4. Dynamic SVG Topology from FalkorDB
+      if (data.topology) {
+        renderTopologySvg(data.topology, data.paths, currentOptimalCut);
+      }
+
+      // 5. Path Pills
       const pillsContainer = document.getElementById('pathPillsContainer');
       if (pillsContainer) {
         if (data.paths && data.paths.length > 0) {
@@ -1671,8 +1737,7 @@
         }
       }
 
-      // 5. Proof Box & Optimal Cut
-      currentOptimalCut = data.cut_solution ? data.cut_solution.optimal : null;
+      // 6. Proof Box & Optimal Cut
       if (currentOptimalCut && currentOptimalCut.cut_nodes) {
         const proofOptimalNodes = document.getElementById('proofOptimalNodes');
         const proofOptimalCost = document.getElementById('proofOptimalCost');
@@ -1680,14 +1745,14 @@
         if (proofOptimalCost) proofOptimalCost.textContent = currentOptimalCut.blast_cost;
       }
 
-      // 6. Centrality Table
+      // 7. Centrality Table
       if (data.candidates && data.candidates.length > 0) {
         const tbody = document.getElementById('candidatesTableBody');
         if (tbody) {
           const maxCent = Math.max(...data.candidates.map(c => c.centrality || 0), 1);
           tbody.innerHTML = data.candidates.map(c => {
             const widthPct = Math.min(100, Math.round(((c.centrality || 0) / maxCent) * 80));
-            const isCut = currentOptimalCut && currentOptimalCut.cut_nodes.includes(c.id);
+            const isCut = currentOptimalCut && currentOptimalCut.cut_nodes && currentOptimalCut.cut_nodes.includes(c.id);
             const stateStr = isContained && isCut
               ? '<span style="color:#15803d; font-weight:600;">ISOLATED</span>'
               : (isCut ? '<span style="color:var(--indigo); font-weight:600;">TARGET CUT</span>' : '<span style="color:var(--body);">Spared</span>');
@@ -1697,7 +1762,7 @@
                 <td><code>${c.id}</code></td>
                 <td>
                   <div class="meter-wrap">
-                    <div class="meter-bar" style="width: ${widthPct}px; background: ${c.centrality > 8 ? 'var(--warning)' : 'var(--indigo)'};"></div>
+                    <div class="meter-bar" style="width: ${widthPct}px; background: ${c.centrality > 0.8 ? 'var(--warning)' : 'var(--indigo)'};"></div>
                     <span>${(c.centrality || 0).toFixed(2)}</span>
                   </div>
                 </td>
@@ -1710,7 +1775,7 @@
         }
       }
 
-      // 7. Telemetry Terminal
+      // 8. Telemetry Terminal
       if (data.telemetry && data.telemetry.length > 0) {
         const tBody = document.getElementById('telemetryBody');
         const totalMs = data.telemetry.reduce((acc, t) => acc + (t.execution_ms || 0), 0).toFixed(2);
@@ -1737,44 +1802,6 @@
       }
     }
 
-    function updateSvgVisuals(isContained) {
-      const edges = document.querySelectorAll('#edgesGroup path.edge-line');
-      const deployNode = document.querySelector('#node-deploy_token rect');
-      const artifactNode = document.querySelector('#node-artifact_token rect');
-
-      if (isContained) {
-        edges.forEach(e => {
-          if (e.id !== 'e-bypass') {
-            e.classList.remove('edge-active');
-            e.classList.add('edge-dimmed');
-          }
-        });
-        if (deployNode) {
-          deployNode.setAttribute('stroke', '#15803d');
-          deployNode.setAttribute('fill', '#dcfce7');
-        }
-        if (artifactNode) {
-          artifactNode.setAttribute('stroke', '#15803d');
-          artifactNode.setAttribute('fill', '#dcfce7');
-        }
-      } else {
-        edges.forEach(e => {
-          if (e.id !== 'e-bypass') {
-            e.classList.remove('edge-dimmed');
-            e.classList.add('edge-active');
-          }
-        });
-        if (deployNode) {
-          deployNode.setAttribute('stroke', '#4f46e5');
-          deployNode.setAttribute('fill', '#e0e7ff');
-        }
-        if (artifactNode) {
-          artifactNode.setAttribute('stroke', '#4f46e5');
-          artifactNode.setAttribute('fill', '#e0e7ff');
-        }
-      }
-    }
-
     async function authorizeCut() {
       if (!currentOptimalCut) return;
       const sourceSelect = document.getElementById('sourceSelect');
@@ -1792,15 +1819,14 @@
           })
         });
 
-        let rec = null;
-        if (res.ok) {
-          rec = await res.json();
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
 
-        const pre = rec && rec.pre_paths !== undefined ? rec.pre_paths : 3;
+        const rec = await res.json();
+        const pre = rec && rec.pre_paths !== undefined ? rec.pre_paths : 0;
         const post = rec && rec.post_paths !== undefined ? rec.post_paths : 0;
-        const hash = (rec && (rec.sha256_receipt || (rec.receipt && rec.receipt.post_mitigation_graph_hash)))
-          || "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        const hash = (rec && (rec.sha256_receipt || (rec.receipt && rec.receipt.post_mitigation_graph_hash))) || "";
 
         const now = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
         document.getElementById('receiptTimestamp').textContent = now;
@@ -1810,67 +1836,43 @@
 
         await loadGraphState();
       } catch (err) {
-        console.warn("Containment API error, running deterministic local verification:", err);
-        document.getElementById('receiptBox').classList.add('active');
-        document.getElementById('receiptHash').textContent = "SHA-256: 7d1f95c479e01fb33c2a8f89... [LOCAL VERIFIED]";
-        updateSvgVisuals(true);
+        console.error("Containment failed:", err);
       }
     }
 
     async function injectBypass() {
       const sourceSelect = document.getElementById('sourceSelect');
       const sourceId = sourceSelect ? sourceSelect.value : 'ci-runner-07';
-      isBypassActive = !isBypassActive;
-
-      const bypassPath = document.getElementById('e-bypass');
-      const bypassLabel = document.getElementById('lbl-bypass');
-      const btnBypass = document.getElementById('btnBypass');
-
-      if (bypassPath && bypassLabel) {
-        bypassPath.style.display = isBypassActive ? 'block' : 'none';
-        bypassLabel.style.display = isBypassActive ? 'block' : 'none';
-        if (isBypassActive) {
-          bypassPath.classList.add('edge-active');
-        }
-      }
-
-      if (btnBypass) {
-        btnBypass.textContent = isBypassActive ? 'Remove Stealth Bypass' : 'Inject Stealth Bypass (EV-999)';
-      }
 
       try {
-        await fetch('/api/mutate/bypass', {
+        const res = await fetch('/api/mutate/bypass', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ source_id: sourceId })
         });
+        const body = await res.json();
+        const btnBypass = document.getElementById('btnBypass');
+        if (btnBypass && body.action) {
+          btnBypass.textContent = body.action === 'injected' ? 'Remove Stealth Bypass' : 'Inject Stealth Bypass (EV-999)';
+        }
         await loadGraphState();
       } catch (err) {
-        console.warn("Bypass mutation local simulation:", err);
+        console.error("Bypass error:", err);
       }
     }
 
     async function resetTopology() {
-      isBypassActive = false;
-      const bypassPath = document.getElementById('e-bypass');
-      const bypassLabel = document.getElementById('lbl-bypass');
       const btnBypass = document.getElementById('btnBypass');
-      if (bypassPath && bypassLabel) {
-        bypassPath.style.display = 'none';
-        bypassLabel.style.display = 'none';
-      }
       if (btnBypass) {
         btnBypass.textContent = 'Inject Stealth Bypass (EV-999)';
       }
-
       document.getElementById('receiptBox').classList.remove('active');
 
       try {
         await fetch('/api/reset', { method: 'POST' });
         await loadGraphState();
       } catch (err) {
-        console.warn("Reset topology local simulation:", err);
-        renderState(BASELINE_DATA);
+        console.error("Reset failed:", err);
       }
     }
 

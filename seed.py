@@ -12,7 +12,6 @@ try:
 except ImportError:
     pass
 
-
 try:
     from config import settings
     FALKORDB_HOST = settings.falkordb_host
@@ -24,84 +23,58 @@ except Exception:
     FALKORDB_PORT = int(os.getenv("FALKORDB_PORT", "6379"))
     GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "prod_graph")
 
-# Infrastructure Entity Records
-INFRA_NODES = [
-    {"id": "ci_runner", "name": "GitHub Actions CI Runner", "kind": "workload", "criticality": "high", "cost": 10, "revenue_impact_score": 0, "status": "compromised"},
-    {"id": "runner_host", "name": "Ephemeral Runner Host", "kind": "host", "criticality": "medium", "cost": 9, "revenue_impact_score": 0, "status": "active"},
-    {"id": "deploy_token", "name": "Production Deploy Credential", "kind": "credential", "criticality": "high", "cost": 2, "revenue_impact_score": 0, "status": "active"},
-    {"id": "production_deploy_role", "name": "Production Deploy IAM Role", "kind": "iam_role", "criticality": "high", "cost": 6, "revenue_impact_score": 0, "status": "active"},
-    {"id": "artifact_token", "name": "Artifact Publish Credential", "kind": "credential", "criticality": "high", "cost": 3, "revenue_impact_score": 0, "status": "active"},
-    {"id": "artifact_registry", "name": "Private Artifact Registry", "kind": "registry", "criticality": "high", "cost": 7, "revenue_impact_score": 0, "status": "active"},
-    {"id": "release_controller", "name": "Production Release Controller", "kind": "service", "criticality": "critical", "cost": 10, "revenue_impact_score": 0, "status": "active"},
-    {"id": "signer_role", "name": "Release Signing IAM Role", "kind": "iam_role", "criticality": "critical", "cost": 8, "revenue_impact_score": 0, "status": "active"},
-    {"id": "signing_key", "name": "Production Signing Key", "kind": "key", "criticality": "crown_jewel", "cost": 9999, "revenue_impact_score": 0, "status": "active"},
-    {"id": "legacy_release_session", "name": "Legacy Release Session", "kind": "session", "criticality": "high", "cost": 4, "revenue_impact_score": 0, "status": "active"},
-    {"id": "build_artifact", "name": "Signed Release Artifact", "kind": "artifact", "criticality": "high", "cost": 6, "revenue_impact_score": 0, "status": "active"},
-    {"id": "production_cluster", "name": "Production Kubernetes Cluster", "kind": "cluster", "criticality": "critical", "cost": 9, "revenue_impact_score": 0, "status": "active"},
-    {"id": "audit_service", "name": "Release Audit Service", "kind": "service", "criticality": "medium", "cost": 5, "revenue_impact_score": 2, "status": "active"},
-    {"id": "approval_service", "name": "Release Approval Service", "kind": "service", "criticality": "high", "cost": 5, "revenue_impact_score": 3, "status": "active"},
-    {"id": "deployment_manifest", "name": "Production Deployment Manifest", "kind": "artifact", "criticality": "high", "cost": 5, "revenue_impact_score": 0, "status": "active"},
-    {"id": "runner_oidc_binding", "name": "Runner OIDC Trust Binding", "kind": "trust_binding", "criticality": "high", "cost": 6, "revenue_impact_score": 0, "status": "active"},
+# 8 Infrastructure Entity Nodes (Section 5 exact attack topology)
+ENTITY_NODES = [
+    {"id": "ci-runner-07", "name": "CI Runner 07", "kind": "workload", "criticality": "high", "cost": 10, "revenue_impact_score": 0, "status": "compromised"},
+    {"id": "staging-worker-02", "name": "Staging Worker 02", "kind": "workload", "criticality": "medium", "cost": 8, "revenue_impact_score": 0, "status": "active"},
+    {"id": "tok-deploy-alpha", "name": "Deploy Credential Alpha", "kind": "credential", "criticality": "high", "cost": 2, "revenue_impact_score": 0, "status": "active"},
+    {"id": "tok-artifact-rw", "name": "Artifact RW Token", "kind": "credential", "criticality": "high", "cost": 3, "revenue_impact_score": 0, "status": "active"},
+    {"id": "role-cloud-deployer", "name": "Cloud Deployer IAM Role", "kind": "iam_role", "criticality": "high", "cost": 6, "revenue_impact_score": 0, "status": "active"},
+    {"id": "pkg-registry-core", "name": "Core Package Registry", "kind": "registry", "criticality": "high", "cost": 7, "revenue_impact_score": 0, "status": "active"},
+    {"id": "release-controller", "name": "Production Release Controller", "kind": "service", "criticality": "critical", "cost": 10, "revenue_impact_score": 0, "status": "active"},
+    {"id": "prod-signing-key", "name": "Production Signing Key", "kind": "key", "criticality": "crown_jewel", "cost": 9999, "revenue_impact_score": 0, "status": "active"},
 ]
 
-# Downstream Business Services for Dynamic Service Impact Analysis
-DOWNSTREAM_SERVICES = [
-    {"id": "checkout_api", "name": "Checkout API", "kind": "service", "criticality": "critical", "cost": 10, "revenue_impact_score": 5, "status": "active"},
-    {"id": "billing_worker", "name": "Billing Worker", "kind": "service", "criticality": "high", "cost": 8, "revenue_impact_score": 3, "status": "active"},
-    {"id": "release_pipeline", "name": "Release Pipeline", "kind": "service", "criticality": "high", "cost": 6, "revenue_impact_score": 2, "status": "active"},
-    {"id": "auth_gateway", "name": "Auth Gateway", "kind": "service", "criticality": "critical", "cost": 10, "revenue_impact_score": 5, "status": "active"},
-    {"id": "staging_deployer", "name": "Staging Deployer", "kind": "service", "criticality": "medium", "cost": 4, "revenue_impact_score": 2, "status": "active"},
-    {"id": "artifact_publisher", "name": "Artifact Publish Daemon", "kind": "service", "criticality": "medium", "cost": 5, "revenue_impact_score": 3, "status": "active"},
-    {"id": "legacy_batch_service", "name": "Legacy Batch Consumer", "kind": "service", "criticality": "medium", "cost": 4, "revenue_impact_score": 4, "status": "active"},
-    {"id": "canary_service", "name": "Canary Rollout Service", "kind": "service", "criticality": "high", "cost": 7, "revenue_impact_score": 4, "status": "active"},
-    {"id": "binary_attestation", "name": "Binary Attestation Verifier", "kind": "service", "criticality": "high", "cost": 8, "revenue_impact_score": 4, "status": "active"},
+# 5 Downstream Business Services for Dynamic Service Impact Analysis
+SERVICE_NODES = [
+    {"id": "checkout-api", "name": "Global Checkout API", "kind": "service", "criticality": "critical", "cost": 10, "revenue_impact_score": 5, "status": "active"},
+    {"id": "release-train", "name": "Zero-Downtime Release Train", "kind": "service", "criticality": "critical", "cost": 10, "revenue_impact_score": 5, "status": "active"},
+    {"id": "oidc-gateway", "name": "Edge OIDC Gateway", "kind": "service", "criticality": "high", "cost": 8, "revenue_impact_score": 4, "status": "active"},
+    {"id": "staging-pipeline", "name": "Staging Build Pipeline", "kind": "service", "criticality": "medium", "cost": 4, "revenue_impact_score": 2, "status": "active"},
+    {"id": "artifact-indexer", "name": "Artifact Catalog Indexer", "kind": "service", "criticality": "medium", "cost": 5, "revenue_impact_score": 3, "status": "active"},
 ]
 
-NODES = INFRA_NODES + DOWNSTREAM_SERVICES
-ALL_NODES = NODES
+# Backward compatibility aliases
+INFRA_NODES = ENTITY_NODES
+DOWNSTREAM_SERVICES = SERVICE_NODES
+NODES = ENTITY_NODES
+ALL_NODES = ENTITY_NODES
 
-# Directed Attack Edges (Section 5 exact attack graph)
+# 8 Directed Attack Step Edges
 ATTACK_EDGES = [
-    {"source": "ci_runner", "target": "deploy_token", "mechanism": "Compromised process can access deploy credential", "active": True, "evidence_id": "E-001"},
-    {"source": "deploy_token", "target": "production_deploy_role", "mechanism": "Credential permits production role assumption", "active": True, "evidence_id": "E-002"},
-    {"source": "production_deploy_role", "target": "release_controller", "mechanism": "Role can invoke production release", "active": True, "evidence_id": "E-003"},
-    {"source": "ci_runner", "target": "artifact_token", "mechanism": "Compromised runner can access registry credential", "active": True, "evidence_id": "E-004"},
-    {"source": "artifact_token", "target": "artifact_registry", "mechanism": "Credential has artifact publish permission", "active": True, "evidence_id": "E-005"},
-    {"source": "artifact_registry", "target": "release_controller", "mechanism": "Controller consumes registry artifacts", "active": True, "evidence_id": "E-006"},
-    {"source": "deploy_token", "target": "legacy_release_session", "mechanism": "Credential can reach a legacy release session", "active": True, "evidence_id": "E-007"},
-    {"source": "legacy_release_session", "target": "release_controller", "mechanism": "Legacy session can invoke production release", "active": True, "evidence_id": "E-008"},
-    {"source": "release_controller", "target": "signer_role", "mechanism": "Release controller can request signing", "active": True, "evidence_id": "E-009"},
-    {"source": "signer_role", "target": "signing_key", "mechanism": "Signing role can use production key", "active": True, "evidence_id": "E-010"},
+    {"source": "ci-runner-07", "target": "tok-deploy-alpha", "mechanism": "Compromised runner accesses deploy token", "active": True, "evidence_id": "E-001"},
+    {"source": "ci-runner-07", "target": "tok-artifact-rw", "mechanism": "Compromised runner accesses artifact token", "active": True, "evidence_id": "E-002"},
+    {"source": "staging-worker-02", "target": "tok-artifact-rw", "mechanism": "Staging worker accesses artifact token", "active": True, "evidence_id": "E-003"},
+    {"source": "tok-deploy-alpha", "target": "role-cloud-deployer", "mechanism": "Deploy token assumes cloud deployer role", "active": True, "evidence_id": "E-004"},
+    {"source": "tok-artifact-rw", "target": "pkg-registry-core", "mechanism": "Artifact token publishes to package registry", "active": True, "evidence_id": "E-005"},
+    {"source": "role-cloud-deployer", "target": "release-controller", "mechanism": "Cloud deployer invokes release controller", "active": True, "evidence_id": "E-006"},
+    {"source": "pkg-registry-core", "target": "release-controller", "mechanism": "Package registry consumed by release controller", "active": True, "evidence_id": "E-007"},
+    {"source": "release-controller", "target": "prod-signing-key", "mechanism": "Release controller accesses production signing key", "active": True, "evidence_id": "E-008"},
 ]
 
-# Baseline Infrastructure Operational Dependencies
-INFRA_DEPENDENCIES = [
-    {"source": "ci_runner", "target": "runner_host", "purpose": "runs_on"},
-    {"source": "ci_runner", "target": "runner_oidc_binding", "purpose": "requests_federated_identity"},
-    {"source": "release_controller", "target": "build_artifact", "purpose": "consumes_artifact"},
-    {"source": "release_controller", "target": "production_cluster", "purpose": "deploys_to"},
-    {"source": "release_controller", "target": "audit_service", "purpose": "emits_audit_events"},
-    {"source": "release_controller", "target": "approval_service", "purpose": "requires_approval"},
-    {"source": "artifact_registry", "target": "deployment_manifest", "purpose": "stores_release_manifest"},
+# 7 Reverse Operational Dependencies (Service -> Entity)
+DEPENDENCIES = [
+    {"source": "checkout-api", "target": "release-controller", "purpose": "deployed_by_controller"},
+    {"source": "release-train", "target": "release-controller", "purpose": "managed_by_controller"},
+    {"source": "oidc-gateway", "target": "release-controller", "purpose": "orchestrated_by_controller"},
+    {"source": "staging-pipeline", "target": "tok-deploy-alpha", "purpose": "uses_deploy_credentials"},
+    {"source": "artifact-indexer", "target": "tok-artifact-rw", "purpose": "uses_publish_credentials"},
+    {"source": "release-train", "target": "role-cloud-deployer", "purpose": "assumes_deploy_role"},
+    {"source": "artifact-indexer", "target": "pkg-registry-core", "purpose": "indexes_registry"},
 ]
 
-# Service Operational Dependencies for Multi-Hop Blast-Radius Graph Traversal
-SERVICE_DEPENDENCIES = [
-    {"source": "staging_deployer", "target": "deploy_token", "purpose": "uses_deploy_credentials"},
-    {"source": "artifact_publisher", "target": "artifact_token", "purpose": "uses_publish_credentials"},
-    {"source": "checkout_api", "target": "release_controller", "purpose": "deployed_by_controller"},
-    {"source": "billing_worker", "target": "release_controller", "purpose": "orchestrated_by_controller"},
-    {"source": "release_pipeline", "target": "release_controller", "purpose": "managed_by_controller"},
-    {"source": "legacy_batch_service", "target": "legacy_release_session", "purpose": "consumes_legacy_session"},
-    {"source": "release_pipeline", "target": "production_deploy_role", "purpose": "assumes_deploy_role"},
-    {"source": "canary_service", "target": "production_deploy_role", "purpose": "assumes_deploy_role"},
-    {"source": "artifact_publisher", "target": "artifact_registry", "purpose": "pushes_to_registry"},
-    {"source": "canary_service", "target": "artifact_registry", "purpose": "pulls_from_registry"},
-    {"source": "binary_attestation", "target": "signer_role", "purpose": "requests_role_signatures"},
-    {"source": "canary_service", "target": "signer_role", "purpose": "verifies_signing_role"},
-]
-
-DEPENDENCIES = INFRA_DEPENDENCIES + SERVICE_DEPENDENCIES
+INFRA_DEPENDENCIES = []
+SERVICE_DEPENDENCIES = DEPENDENCIES
 ALL_DEPENDENCIES = DEPENDENCIES
 
 
@@ -123,17 +96,24 @@ def seed_single_graph(graph, graph_name: str):
         status: node_props.status
     })
     """
-    graph.query(node_query, {"nodes": NODES})
+    graph.query(node_query, {"nodes": ENTITY_NODES})
 
-    # Label service nodes with :Service label for blast radius queries
-    service_label_query = """
+    # 2. Insert Service nodes using parameterized Cypher query
+    service_query = """
     UNWIND $services AS svc
-    MATCH (n:Entity {id: svc.id})
-    SET n:Service
+    CREATE (s:Service {
+        id: svc.id,
+        name: svc.name,
+        kind: svc.kind,
+        criticality: svc.criticality,
+        cost: svc.cost,
+        revenue_impact_score: svc.revenue_impact_score,
+        status: svc.status
+    })
     """
-    graph.query(service_label_query, {"services": DOWNSTREAM_SERVICES})
+    graph.query(service_query, {"services": SERVICE_NODES})
 
-    # 2. Insert ATTACK_STEP relationships using parameterized Cypher query
+    # 3. Insert ATTACK_STEP relationships using parameterized Cypher query
     attack_query = """
     UNWIND $edges AS edge_props
     MATCH (src:Entity {id: edge_props.source})
@@ -146,10 +126,10 @@ def seed_single_graph(graph, graph_name: str):
     """
     graph.query(attack_query, {"edges": ATTACK_EDGES})
 
-    # 3. Insert DEPENDS_ON relationships using parameterized Cypher query
+    # 4. Insert DEPENDS_ON relationships using parameterized Cypher query
     dep_query = """
     UNWIND $deps AS dep_props
-    MATCH (src:Entity {id: dep_props.source})
+    MATCH (src:Service {id: dep_props.source})
     MATCH (dst:Entity {id: dep_props.target})
     CREATE (src)-[:DEPENDS_ON {
         purpose: dep_props.purpose
@@ -169,7 +149,6 @@ def seed_database(host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_na
 
     seed_single_graph(target_graph, graph_name)
 
-
     # Verify counts on target graph
     node_res = target_graph.query("MATCH (n:Entity) RETURN count(n) AS cnt")
     service_res = target_graph.query("MATCH (s:Service) RETURN count(s) AS cnt")
@@ -181,10 +160,13 @@ def seed_database(host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_na
     attack_count = attack_res.result_set[0][0]
     dep_count = dep_res.result_set[0][0]
 
-    print(f"Found: {node_count} Entity nodes ({service_count} Services), {attack_count} ATTACK_STEP edges, {dep_count} DEPENDS_ON edges")
+    print(f"Found: {node_count} Entity nodes, {service_count} Service nodes, {attack_count} ATTACK_STEP edges, {dep_count} DEPENDS_ON edges")
 
-    if node_count != len(NODES):
-        print(f"ERROR: Expected {len(NODES)} Entity nodes, got {node_count}", file=sys.stderr)
+    if node_count != len(ENTITY_NODES):
+        print(f"ERROR: Expected {len(ENTITY_NODES)} Entity nodes, got {node_count}", file=sys.stderr)
+        sys.exit(1)
+    if service_count != len(SERVICE_NODES):
+        print(f"ERROR: Expected {len(SERVICE_NODES)} Service nodes, got {service_count}", file=sys.stderr)
         sys.exit(1)
     if attack_count != len(ATTACK_EDGES):
         print(f"ERROR: Expected {len(ATTACK_EDGES)} ATTACK_STEP edges, got {attack_count}", file=sys.stderr)
@@ -195,21 +177,37 @@ def seed_database(host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_na
 
     print("SUCCESS: TEZCATL graph seeded and all count assertions passed.")
 
-    # Verify attack path count
+    # Verify attack path count from ci-runner-07
     path_query = """
-    MATCH p = (src:Entity {id: 'ci_runner'})-[:ATTACK_STEP*1..8]->(target:Entity {criticality: 'crown_jewel'})
+    MATCH p = (src:Entity {id: 'ci-runner-07'})-[:ATTACK_STEP*1..8]->(target:Entity {criticality: 'crown_jewel'})
     WHERE ALL(r IN relationships(p) WHERE r.active = true)
-      AND ALL(n IN nodes(p) WHERE n.status <> 'disabled')
+      AND ALL(n IN nodes(p) WHERE n.status <> 'disabled' AND n.status <> 'isolated')
     RETURN [n IN nodes(p) | n.id] AS path, length(p) AS hops
     """
     path_res = target_graph.query(path_query)
     paths = path_res.result_set
-    print(f"Found {len(paths)} directed attack paths from ci_runner to crown jewel:")
+    print(f"Found {len(paths)} directed attack paths from ci-runner-07 to crown jewel:")
     for path, hops in paths:
         print(f"  -> Path ({hops} hops): {' -> '.join(path)}")
 
-    if len(paths) != 3:
-        print(f"ERROR: Expected 3 paths, got {len(paths)}", file=sys.stderr)
+    if len(paths) != 2:
+        print(f"ERROR: Expected 2 paths from ci-runner-07, got {len(paths)}", file=sys.stderr)
+        sys.exit(1)
+
+    # Verify attack path count from staging-worker-02
+    staging_path_query = """
+    MATCH p = (src:Entity {id: 'staging-worker-02'})-[:ATTACK_STEP*1..8]->(target:Entity {criticality: 'crown_jewel'})
+    WHERE ALL(r IN relationships(p) WHERE r.active = true)
+      AND ALL(n IN nodes(p) WHERE n.status <> 'disabled' AND n.status <> 'isolated')
+    RETURN [n IN nodes(p) | n.id] AS path, length(p) AS hops
+    """
+    staging_paths = target_graph.query(staging_path_query).result_set
+    print(f"Found {len(staging_paths)} directed attack paths from staging-worker-02 to crown jewel:")
+    for path, hops in staging_paths:
+        print(f"  -> Path ({hops} hops): {' -> '.join(path)}")
+
+    if len(staging_paths) != 1:
+        print(f"ERROR: Expected 1 path from staging-worker-02, got {len(staging_paths)}", file=sys.stderr)
         sys.exit(1)
 
     print("SUCCESS: TEZCATL graph populated and all node, edge, and path assertions passed.")

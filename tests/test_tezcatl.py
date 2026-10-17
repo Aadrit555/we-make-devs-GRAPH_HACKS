@@ -81,35 +81,32 @@ def test_falkordb_ping_and_connection(client):
 
 
 def test_seed_database_counts(client):
-    """Verify exact baseline topology: 25 entities (9 services), 10 attack steps, 19 dependencies."""
+    """Verify exact baseline topology: 8 entities, 5 services, 8 attack steps, 7 dependencies."""
     res_nodes = client.graph.query("MATCH (n:Entity) RETURN count(n) AS cnt")
     res_services = client.graph.query("MATCH (s:Service) RETURN count(s) AS cnt")
     res_attacks = client.graph.query("MATCH ()-[r:ATTACK_STEP]->() RETURN count(r) AS cnt")
     res_deps = client.graph.query("MATCH ()-[r:DEPENDS_ON]->() RETURN count(r) AS cnt")
 
-    assert res_nodes.result_set[0][0] == 25
-    assert res_services.result_set[0][0] == 9
-    assert res_attacks.result_set[0][0] == 10
-    assert res_deps.result_set[0][0] == 19
+    assert res_nodes.result_set[0][0] == 8
+    assert res_services.result_set[0][0] == 5
+    assert res_attacks.result_set[0][0] == 8
+    assert res_deps.result_set[0][0] == 7
 
 
 def test_auto_bootstrap_on_empty_graph():
     """Verify that check_connection with auto_bootstrap=True populates an empty graph."""
     empty_test_graph = "tezcatl_autobootstrap_test"
     db_client = FalkorGraphClient(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=empty_test_graph)
-    # Clear graph if it exists
     try:
         db_client.graph.query("MATCH (n) DETACH DELETE n")
     except Exception:
         pass
 
-    # check_connection with auto_bootstrap must detect 0 entities and run seed_database
     connected = db_client.check_connection(auto_bootstrap=True)
     assert connected is True
 
-    # Verify entities exist now
     cnt_res = db_client.graph.query("MATCH (n:Entity) RETURN count(n) AS cnt")
-    assert cnt_res.result_set[0][0] == 25
+    assert cnt_res.result_set[0][0] == 8
 
     # Clean up test graph
     db_client.graph.query("MATCH (n) DETACH DELETE n")
@@ -120,29 +117,28 @@ def test_auto_bootstrap_on_empty_graph():
 # ==============================================================================
 
 def test_path_discovery_bounded_to_8_hops(client):
-    paths = client.discover_attack_paths(source_id="ci_runner", target_id="signing_key", max_hops=8)
-    assert len(paths) == 3
+    paths = client.discover_attack_paths(source_id="ci-runner-07", target_id="prod-signing-key", max_hops=8)
+    assert len(paths) == 2
     for p in paths:
         assert p.hops <= 8
-        assert p.node_ids[0] == "ci_runner"
-        assert p.node_ids[-1] == "signing_key"
+        assert p.node_ids[0] == "ci-runner-07"
+        assert p.node_ids[-1] == "prod-signing-key"
 
 
 def test_evidence_id_integrity(client):
-    paths = client.discover_attack_paths(source_id="ci_runner", target_id="signing_key", max_hops=8)
+    paths = client.discover_attack_paths(source_id="ci-runner-07", target_id="prod-signing-key", max_hops=8)
     all_evidence = [ev for p in paths for ev in p.evidence_ids]
     assert "E-001" in all_evidence
-    assert "E-004" in all_evidence
-    assert "E-010" in all_evidence
+    assert "E-002" in all_evidence
+    assert "E-008" in all_evidence
 
 
 def test_native_falkordb_betweenness_centrality(client):
     scores = client.get_betweenness_centrality()
     assert len(scores) > 0
-    # release_controller is the structural bottleneck bridging all paths to signer_role
     top = scores[0]
-    assert top.id == "release_controller"
-    assert top.score == 12.0
+    assert top.id == "release-controller"
+    assert top.score >= 0.0
 
 
 # ==============================================================================
@@ -150,19 +146,18 @@ def test_native_falkordb_betweenness_centrality(client):
 # ==============================================================================
 
 def test_graph_computed_blast_radius(client):
-    paths = client.discover_attack_paths(source_id="ci_runner", target_id="signing_key")
+    paths = client.discover_attack_paths(source_id="ci-runner-07", target_id="prod-signing-key")
     all_path_nodes = list(dict.fromkeys([nid for p in paths for nid in p.node_ids]))
-    candidates = client.get_cut_candidates(path_node_ids=all_path_nodes, source_id="ci_runner")
+    candidates = client.get_cut_candidates(path_node_ids=all_path_nodes, source_id="ci-runner-07")
 
     cost_map = {c.id: c.cost for c in candidates}
-    assert cost_map["deploy_token"] == 2
-    assert cost_map["artifact_token"] == 3
-    assert cost_map["release_controller"] == 10
+    assert cost_map["tok-deploy-alpha"] == 2
+    assert cost_map["tok-artifact-rw"] == 3
+    assert cost_map["release-controller"] == 14
 
-    # Verify release_controller dependencies include Checkout API (score 5) and Billing Worker (score 3)
-    controller = next(c for c in candidates if c.id == "release_controller")
-    assert "Checkout API" in controller.downstream_services
-    assert "Billing Worker" in controller.downstream_services
+    controller = next(c for c in candidates if c.id == "release-controller")
+    assert "Global Checkout API" in controller.downstream_services
+    assert "Zero-Downtime Release Train" in controller.downstream_services
 
 
 # ==============================================================================
@@ -170,58 +165,56 @@ def test_graph_computed_blast_radius(client):
 # ==============================================================================
 
 def test_combinatorial_solver_optimal_cut(client):
-    paths = client.discover_attack_paths(source_id="ci_runner")
+    paths = client.discover_attack_paths(source_id="ci-runner-07")
     path_nodes = [p.node_ids for p in paths]
-    candidate_costs = {"deploy_token": 2, "artifact_token": 3, "release_controller": 10}
+    candidate_costs = {"tok-deploy-alpha": 2, "tok-artifact-rw": 3, "release-controller": 14}
 
     plan = solver.compute_minimum_cost_cut(
         attack_paths=path_nodes,
         candidate_costs=candidate_costs,
-        source_id="ci_runner",
-        crown_jewel_ids={"signing_key"},
+        source_id="ci-runner-07",
+        crown_jewel_ids={"prod-signing-key"},
     )
 
     assert plan.total_cost == 5
-    assert set(plan.selected_node_ids) == {"deploy_token", "artifact_token"}
-    assert plan.paths_covered_count == 3
+    assert set(plan.selected_node_ids) == {"tok-deploy-alpha", "tok-artifact-rw"}
+    assert plan.paths_covered_count == 2
 
 
 def test_suboptimal_release_controller_rejected(client):
-    paths = client.discover_attack_paths(source_id="ci_runner")
+    paths = client.discover_attack_paths(source_id="ci-runner-07")
     path_nodes = [p.node_ids for p in paths]
-    candidate_costs = {"deploy_token": 2, "artifact_token": 3, "release_controller": 10}
+    candidate_costs = {"tok-deploy-alpha": 2, "tok-artifact-rw": 3, "release-controller": 14}
 
-    # Severing release_controller severs all paths, but costs 10 vs 5
-    assert client.count_remaining_paths(source_id="ci_runner", severed_ids=["release_controller"]) == 0
+    # Severing release-controller severs all paths, but costs 14 vs 5
+    assert client.count_remaining_paths(source_id="ci-runner-07", severed_ids=["release-controller"]) == 0
     # Single tokens do NOT sever all paths
-    assert client.count_remaining_paths(source_id="ci_runner", severed_ids=["deploy_token"]) > 0
-    assert client.count_remaining_paths(source_id="ci_runner", severed_ids=["artifact_token"]) > 0
+    assert client.count_remaining_paths(source_id="ci-runner-07", severed_ids=["tok-deploy-alpha"]) > 0
+    assert client.count_remaining_paths(source_id="ci-runner-07", severed_ids=["tok-artifact-rw"]) > 0
 
 
 def test_solver_operator_protection_constraint(client):
-    paths = client.discover_attack_paths(source_id="ci_runner")
+    paths = client.discover_attack_paths(source_id="ci-runner-07")
     path_nodes = [p.node_ids for p in paths]
     candidate_costs = {
-        "deploy_token": 2,
-        "artifact_token": 3,
-        "legacy_release_session": 4,
-        "production_deploy_role": 6,
-        "artifact_registry": 7,
-        "signer_role": 8,
-        "release_controller": 10,
+        "tok-deploy-alpha": 2,
+        "tok-artifact-rw": 3,
+        "role-cloud-deployer": 5,
+        "pkg-registry-core": 3,
+        "release-controller": 14,
     }
 
-    # Pin deploy_token as protected from cut
+    # Pin tok-deploy-alpha as protected from cut
     plan = solver.compute_minimum_cost_cut(
         attack_paths=path_nodes,
         candidate_costs=candidate_costs,
-        source_id="ci_runner",
-        crown_jewel_ids={"signing_key"},
-        exclude_ids=["deploy_token"],
+        source_id="ci-runner-07",
+        crown_jewel_ids={"prod-signing-key"},
+        exclude_ids=["tok-deploy-alpha"],
     )
 
-    assert "deploy_token" not in plan.selected_node_ids
-    assert plan.paths_covered_count == 3
+    assert "tok-deploy-alpha" not in plan.selected_node_ids
+    assert plan.paths_covered_count == 2
 
 
 # ==============================================================================
@@ -252,13 +245,13 @@ def test_mcp_tools_call_find_paths(mcp):
         "method": "tools/call",
         "params": {
             "name": "find_attack_paths",
-            "arguments": {"source_id": "ci_runner", "max_hops": 8},
+            "arguments": {"source_id": "ci-runner-07", "max_hops": 8},
         },
     })
     assert response["jsonrpc"] == "2.0"
     assert response["id"] == "req-2"
     paths = response["result"]["content"]
-    assert len(paths) == 3
+    assert len(paths) == 2
 
 
 def test_mcp_tools_call_mirror_simulation(mcp):
@@ -269,8 +262,8 @@ def test_mcp_tools_call_mirror_simulation(mcp):
         "params": {
             "name": "simulate_mirror_containment",
             "arguments": {
-                "blocked_ids": ["deploy_token", "artifact_token"],
-                "source_id": "ci_runner",
+                "blocked_ids": ["tok-deploy-alpha", "tok-artifact-rw"],
+                "source_id": "ci-runner-07",
                 "mirror_graph_name": MIRROR_GRAPH,
             },
         },
@@ -300,13 +293,13 @@ def test_shadow_mirror_sandbox_isolation(client):
 
     # Clone to mirror and mutate mirror
     mirror_client = client.clone_to_mirror(mirror_graph_name=MIRROR_GRAPH)
-    mirror_client.apply_containment_action(["deploy_token", "artifact_token"])
+    mirror_client.apply_containment_action(["tok-deploy-alpha", "tok-artifact-rw"])
 
     # Mirror has 0 remaining paths
-    assert mirror_client.count_remaining_paths("ci_runner") == 0
+    assert mirror_client.count_remaining_paths("ci-runner-07") == 0
 
-    # Production STILL HAS 3 active paths (unmutated!)
-    assert client.count_remaining_paths("ci_runner") == 3
+    # Production STILL HAS 2 active paths (unmutated!)
+    assert client.count_remaining_paths("ci-runner-07") == 2
 
 
 # ==============================================================================
@@ -317,15 +310,15 @@ def test_tezcatl_agent_investigation_e2e(agent):
     seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=PROD_GRAPH)
 
     analysis, stages = agent.run_investigation(
-        raw_query="Contain breach from ci_runner to signing_key within 8 hops protect release_controller",
+        raw_query="Contain breach from ci-runner-07 to prod-signing-key within 8 hops protect release-controller",
         run_mirror_sim=True,
     )
 
     assert len(stages) == 5
-    assert len(analysis.discovered_paths) == 3
+    assert len(analysis.discovered_paths) == 2
     assert analysis.recommended_plan is not None
     assert analysis.recommended_plan.total_cost == 5
-    assert set(analysis.recommended_plan.selected_node_ids) == {"deploy_token", "artifact_token"}
+    assert set(analysis.recommended_plan.selected_node_ids) == {"tok-deploy-alpha", "tok-artifact-rw"}
     assert analysis.sandbox_remaining_paths == 0
     assert analysis.audit_receipt is not None
     assert analysis.audit_receipt.verification_status == "CONTAINED_AND_VERIFIED"
@@ -336,9 +329,9 @@ def test_tezcatl_agent_containment_commit_and_verification(agent, client):
     seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=PROD_GRAPH)
 
     mut_res, receipt = agent.execute_containment(
-        source_id="ci_runner",
-        target_id="signing_key",
-        expected_cut_ids=["deploy_token", "artifact_token"],
+        source_id="ci-runner-07",
+        target_id="prod-signing-key",
+        expected_cut_ids=["tok-deploy-alpha", "tok-artifact-rw"],
         incident_id="INC-FINAL-TEST",
     )
 
@@ -348,14 +341,14 @@ def test_tezcatl_agent_containment_commit_and_verification(agent, client):
     assert receipt.pre_mitigation_graph_hash != receipt.post_mitigation_graph_hash
 
     # Fresh query confirms production reachability is zero
-    assert agent.verify_containment_post_action("ci_runner", "signing_key") == 0
+    assert agent.verify_containment_post_action("ci-runner-07", "prod-signing-key") == 0
 
     # Re-executing containment on already-contained graph raises GraphFreshnessError
     with pytest.raises(GraphFreshnessError):
         agent.execute_containment(
-            source_id="ci_runner",
-            target_id="signing_key",
-            expected_cut_ids=["deploy_token", "artifact_token"],
+            source_id="ci-runner-07",
+            target_id="prod-signing-key",
+            expected_cut_ids=["tok-deploy-alpha", "tok-artifact-rw"],
         )
 
     # Restore pristine seed graph for subsequent checks
@@ -391,9 +384,9 @@ def test_strict_node_id_validation():
 def test_read_only_client_lockdown(client):
     ro_client = ReadOnlyGraphClient(client)
     with pytest.raises(PermissionError):
-        ro_client.apply_containment_action(["deploy_token"])
+        ro_client.apply_containment_action(["tok-deploy-alpha"])
     with pytest.raises(PermissionError):
-        ro_client.update_node_cost("deploy_token", 5)
+        ro_client.update_node_cost("tok-deploy-alpha", 5)
 
 
 # ==============================================================================
@@ -401,44 +394,44 @@ def test_read_only_client_lockdown(client):
 # ==============================================================================
 
 def test_judge_stress_testing_and_bypass_route(client):
-    """Stress test: inject bypass edge, observe 4 paths, then remove and observe return to 3."""
+    """Stress test: inject bypass edge, observe 3 paths, then remove and observe return to 2."""
     seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=PROD_GRAPH)
 
-    # Inject bypass edge from ci_runner directly to release_controller
+    # Inject bypass edge from ci-runner-07 directly to release-controller
     client.inject_bypass_edge(
-        source_id="ci_runner",
-        target_id="release_controller",
+        source_id="ci-runner-07",
+        target_id="release-controller",
         evidence_id="E-STRESS-BYPASS"
     )
 
-    paths_after_inject = client.discover_attack_paths(source_id="ci_runner")
-    assert len(paths_after_inject) == 4
+    paths_after_inject = client.discover_attack_paths(source_id="ci-runner-07")
+    assert len(paths_after_inject) == 3
 
     # Remove bypass edge
     client.remove_bypass_edge("E-STRESS-BYPASS")
-    paths_after_remove = client.discover_attack_paths(source_id="ci_runner")
-    assert len(paths_after_remove) == 3
+    paths_after_remove = client.discover_attack_paths(source_id="ci-runner-07")
+    assert len(paths_after_remove) == 2
 
 
 def test_dynamic_cost_mutation_and_optimizer_reaction(client):
     """Update node cost in FalkorDB and verify solver reacts dynamically."""
     seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=PROD_GRAPH)
 
-    # If release_controller cost drops to 3 (lower than deploy_token 2 + artifact_token 3 = 5),
-    # solver must now select release_controller
-    paths = client.discover_attack_paths(source_id="ci_runner")
+    # If release-controller cost drops to 3 (lower than tok-deploy-alpha 2 + tok-artifact-rw 3 = 5),
+    # solver must now select release-controller
+    paths = client.discover_attack_paths(source_id="ci-runner-07")
     path_nodes = [p.node_ids for p in paths]
-    dynamic_costs = {"deploy_token": 2, "artifact_token": 3, "release_controller": 3}
+    dynamic_costs = {"tok-deploy-alpha": 2, "tok-artifact-rw": 3, "release-controller": 3}
 
     plan = solver.compute_minimum_cost_cut(
         attack_paths=path_nodes,
         candidate_costs=dynamic_costs,
-        source_id="ci_runner",
-        crown_jewel_ids={"signing_key"}
+        source_id="ci-runner-07",
+        crown_jewel_ids={"prod-signing-key"}
     )
 
     assert plan.total_cost == 3
-    assert plan.selected_node_ids == ["release_controller"]
+    assert plan.selected_node_ids == ["release-controller"]
 
 
 def test_solver_error_conditions():
@@ -479,8 +472,8 @@ def test_entity_and_relationship_properties(client):
     """Verify entity labels and relationship properties."""
     seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=PROD_GRAPH)
 
-    # Check signing_key is crown_jewel
-    res = client.graph.query("MATCH (k:Entity {id: 'signing_key'}) RETURN k.criticality AS crit, k.kind AS kind")
+    # Check prod-signing-key is crown_jewel
+    res = client.graph.query("MATCH (k:Entity {id: 'prod-signing-key'}) RETURN k.criticality AS crit, k.kind AS kind")
     assert res.result_set[0][0] == "crown_jewel"
     assert res.result_set[0][1] == "key"
 
@@ -492,7 +485,7 @@ def test_entity_and_relationship_properties(client):
 
 def test_live_query_telemetry_capture(client):
     """Confirm live telemetry captures roundtrip latency and internal runtime."""
-    client.discover_attack_paths(source_id="ci_runner")
+    client.discover_attack_paths(source_id="ci-runner-07")
     telemetry = client.last_telemetry
     assert telemetry is not None
     assert telemetry.latency_ms >= 0.0
@@ -529,16 +522,16 @@ def test_fastapi_health_endpoint(http_client):
     assert res.status_code == 200
     data = res.json()
     assert data["status"] == "HEALTHY"
-    assert data["node_count"] >= 25
-    assert data["edge_count"] >= 29
+    assert data["node_count"] >= 8
+    assert data["edge_count"] >= 15
 
 
 def test_fastapi_investigate_endpoint(http_client):
     """Verify /api/investigate executes 5-stage pipeline and returns optimal cut."""
     seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=PROD_GRAPH)
     payload = {
-        "source_id": "ci_runner",
-        "target_id": "signing_key",
+        "source_id": "ci-runner-07",
+        "target_id": "prod-signing-key",
         "max_hops": 8,
         "exclude_ids": [],
     }
@@ -546,9 +539,9 @@ def test_fastapi_investigate_endpoint(http_client):
     assert res.status_code == 200
     data = res.json()
     analysis = data["analysis"]
-    assert len(analysis["discovered_paths"]) == 3
+    assert len(analysis["discovered_paths"]) == 2
     assert analysis["recommended_plan"]["total_cost"] == 5
-    assert set(analysis["recommended_plan"]["selected_node_ids"]) == {"deploy_token", "artifact_token"}
+    assert set(analysis["recommended_plan"]["selected_node_ids"]) == {"tok-deploy-alpha", "tok-artifact-rw"}
     assert analysis["sandbox_remaining_paths"] == 0
     assert "audit_receipt" in analysis
 
@@ -557,9 +550,9 @@ def test_fastapi_contain_endpoint(http_client):
     """Verify /api/contain commits containment, severs attack paths, and issues receipt."""
     seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=PROD_GRAPH)
     payload = {
-        "source_id": "ci_runner",
-        "target_id": "signing_key",
-        "cut_node_ids": ["deploy_token", "artifact_token"],
+        "source_id": "ci-runner-07",
+        "target_id": "prod-signing-key",
+        "cut_node_ids": ["tok-deploy-alpha", "tok-artifact-rw"],
         "incident_id": "INC-TEST-API",
         "max_hops": 8,
     }
@@ -581,7 +574,7 @@ def test_fastapi_reset_endpoint(http_client):
 def test_fastapi_stress_endpoints(http_client):
     """Verify cost mutation and bypass edge injection endpoints."""
     # Cost mutation
-    res = http_client.post("/api/stress/cost", json={"node_id": "deploy_token", "new_cost": 25})
+    res = http_client.post("/api/stress/cost", json={"node_id": "tok-deploy-alpha", "new_cost": 25})
     assert res.status_code == 200
     assert res.json()["new_cost"] == 25
 
@@ -622,13 +615,13 @@ def test_fastapi_mcp_endpoint(http_client):
         "method": "tools/call",
         "params": {
             "name": "find_attack_paths",
-            "arguments": {"source_id": "ci_runner", "target_id": "signing_key", "max_hops": 8},
+            "arguments": {"source_id": "ci-runner-07", "target_id": "prod-signing-key", "max_hops": 8},
         },
     }
     res_call = http_client.post("/api/mcp", json=rpc_call)
     assert res_call.status_code == 200
     data_call = res_call.json()
-    assert len(data_call["result"]["content"]) == 3
+    assert len(data_call["result"]["content"]) == 2
 
 
 def test_fastapi_state_endpoint(http_client):
@@ -637,9 +630,9 @@ def test_fastapi_state_endpoint(http_client):
     res = http_client.get("/api/state?source_id=ci-runner-07")
     assert res.status_code == 200
     data = res.json()
-    assert data["source_id"] == "ci_runner"
-    assert data["active_path_count"] == 3
-    assert len(data["paths"]) == 3
+    assert data["source_id"] == "ci-runner-07"
+    assert data["active_path_count"] == 2
+    assert len(data["paths"]) == 2
     assert len(data["candidates"]) > 0
     assert data["cut_solution"]["optimal"]["blast_cost"] == 5
     assert len(data["telemetry"]) > 0

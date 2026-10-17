@@ -32,17 +32,25 @@ def test_seed_database_execution_and_counts(graph):
     # Execute seed
     seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=GRAPH_NAME)
 
-    # Entity nodes
+    # 8 Entity nodes
     node_res = graph.query("MATCH (n:Entity) RETURN count(n) AS cnt")
-    assert node_res.result_set[0][0] == len(seed.ALL_NODES)
+    assert node_res.result_set[0][0] == len(seed.ENTITY_NODES)
+    assert node_res.result_set[0][0] == 8
 
-    # 10 ATTACK_STEP relationships
+    # 5 Service nodes
+    service_res = graph.query("MATCH (s:Service) RETURN count(s) AS cnt")
+    assert service_res.result_set[0][0] == len(seed.SERVICE_NODES)
+    assert service_res.result_set[0][0] == 5
+
+    # 8 ATTACK_STEP relationships
     attack_res = graph.query("MATCH ()-[r:ATTACK_STEP]->() RETURN count(r) AS cnt")
     assert attack_res.result_set[0][0] == len(seed.ATTACK_EDGES)
+    assert attack_res.result_set[0][0] == 8
 
-    # DEPENDS_ON relationships
+    # 7 DEPENDS_ON relationships
     dep_res = graph.query("MATCH ()-[r:DEPENDS_ON]->() RETURN count(r) AS cnt")
-    assert dep_res.result_set[0][0] == len(seed.ALL_DEPENDENCIES)
+    assert dep_res.result_set[0][0] == len(seed.DEPENDENCIES)
+    assert dep_res.result_set[0][0] == 7
 
 
 def test_entity_properties_and_types(graph):
@@ -52,14 +60,14 @@ def test_entity_properties_and_types(graph):
                n.criticality AS criticality, n.cost AS cost, n.status AS status
     """)
     records = res.result_set
-    assert len(records) == len(seed.ALL_NODES)
+    assert len(records) == len(seed.ENTITY_NODES)
 
     allowed_kinds = {
         "workload", "credential", "iam_role", "registry", "service",
         "key", "session", "artifact", "cluster", "host", "trust_binding"
     }
     allowed_criticality = {"low", "medium", "high", "critical", "crown_jewel"}
-    allowed_status = {"active", "compromised", "disabled"}
+    allowed_status = {"active", "compromised", "disabled", "isolated"}
 
     for r in records:
         node_id, name, kind, criticality, cost, status = r
@@ -71,11 +79,11 @@ def test_entity_properties_and_types(graph):
         assert status in allowed_status
 
     # Specific anchor tests
-    runner = graph.query("MATCH (n:Entity {id: 'ci_runner'}) RETURN n.status, n.cost").result_set[0]
+    runner = graph.query("MATCH (n:Entity {id: 'ci-runner-07'}) RETURN n.status, n.cost").result_set[0]
     assert runner[0] == "compromised"
     assert runner[1] == 10
 
-    key = graph.query("MATCH (n:Entity {id: 'signing_key'}) RETURN n.criticality, n.cost").result_set[0]
+    key = graph.query("MATCH (n:Entity {id: 'prod-signing-key'}) RETURN n.criticality, n.cost").result_set[0]
     assert key[0] == "crown_jewel"
     assert key[1] == 9999
 
@@ -109,39 +117,36 @@ def test_reseeding_determinism(graph):
     seed.seed_database(host=FALKORDB_HOST, port=FALKORDB_PORT, graph_name=GRAPH_NAME)
 
     nodes = graph.query("MATCH (n:Entity) RETURN count(n)").result_set[0][0]
+    services = graph.query("MATCH (s:Service) RETURN count(s)").result_set[0][0]
     attacks = graph.query("MATCH ()-[r:ATTACK_STEP]->() RETURN count(r)").result_set[0][0]
     deps = graph.query("MATCH ()-[r:DEPENDS_ON]->() RETURN count(r)").result_set[0][0]
 
-    assert nodes == len(seed.ALL_NODES)
+    assert nodes == len(seed.ENTITY_NODES)
+    assert services == len(seed.SERVICE_NODES)
     assert attacks == len(seed.ATTACK_EDGES)
-    assert deps == len(seed.ALL_DEPENDENCIES)
+    assert deps == len(seed.DEPENDENCIES)
 
 
 def test_intended_directed_attack_paths(graph):
-    # Exactly three intended active directed paths from ci_runner to signing_key within 8 hops
+    # Exactly two active directed paths from ci-runner-07 to prod-signing-key within 8 hops
     query = """
-    MATCH p = (src:Entity {id: 'ci_runner'})-[:ATTACK_STEP*1..8]->(target:Entity {criticality: 'crown_jewel'})
+    MATCH p = (src:Entity {id: 'ci-runner-07'})-[:ATTACK_STEP*1..8]->(target:Entity {criticality: 'crown_jewel'})
     WHERE ALL(r IN relationships(p) WHERE r.active = true)
-      AND ALL(n IN nodes(p) WHERE n.status <> 'disabled')
+      AND ALL(n IN nodes(p) WHERE n.status <> 'disabled' AND n.status <> 'isolated')
     RETURN [n IN nodes(p) | n.id] AS node_ids, length(p) AS hops
     ORDER BY hops ASC
     """
     res = graph.query(query)
     paths = res.result_set
-    assert len(paths) == 3
+    assert len(paths) == 2
 
     path_nodes = [p[0] for p in paths]
-    expected_paths = [
-        ["ci_runner", "artifact_token", "artifact_registry", "release_controller", "signer_role", "signing_key"],
-        ["ci_runner", "deploy_token", "legacy_release_session", "release_controller", "signer_role", "signing_key"],
-        ["ci_runner", "deploy_token", "production_deploy_role", "release_controller", "signer_role", "signing_key"],
-    ]
+    expected_1 = ["ci-runner-07", "tok-artifact-rw", "pkg-registry-core", "release-controller", "prod-signing-key"]
+    expected_2 = ["ci-runner-07", "tok-deploy-alpha", "role-cloud-deployer", "release-controller", "prod-signing-key"]
 
-    for ep in expected_paths:
-        assert ep in path_nodes
+    assert expected_1 in path_nodes
+    assert expected_2 in path_nodes
 
-    # All paths must be exactly 5 hops (length(p) == 5)
+    # All paths must be exactly 4 hops
     for p in paths:
-        assert p[1] == 5
-
-
+        assert p[1] == 4
