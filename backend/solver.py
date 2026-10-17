@@ -60,3 +60,4 @@ def solve_minimum_cut_set(
     evaluated.sort(key=lambda x: (not x["complete_cut"], x["blast_cost"], len(x["cut_nodes"]), x["proximity"]))
     optimal = next((item for item in evaluated if item["complete_cut"]), None)
     return {"optimal": optimal, "evaluated": evaluated[:8]}
+

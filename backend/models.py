@@ -108,3 +108,4 @@ class InvestigationStateResponse(BaseModel):
     cut_solution: CutSolution
     mirror_proof: Optional[MirrorProof] = None
     telemetry: List[Dict[str, Any]] = Field(default_factory=list)
+

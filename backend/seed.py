@@ -95,3 +95,4 @@ if __name__ == "__main__":
     db = FalkorDB(host=FALKORDB_HOST, port=FALKORDB_PORT)
     res = seed_graph(db, PROD_GRAPH)
     print(f"Successfully seeded '{res['seeded_graph']}': {res['entities']} entities, {res['services']} services.")
+
