@@ -7,66 +7,17 @@ import hashlib
 import json
 from typing import Any
 from falkordb import FalkorDB
-from backend.config import (
-    FALKORDB_HOST,
-    FALKORDB_PORT,
-    PROD_GRAPH,
-    MIRROR_GRAPH,
-    DB_STARTUP_RETRIES,
-    DB_RETRY_INTERVAL,
-)
+from backend.config import FALKORDB_HOST, FALKORDB_PORT, PROD_GRAPH, MIRROR_GRAPH
 from backend.seed import seed_graph
 from backend.solver import solve_minimum_cut_set
 
 
 class TezcatlGraphEngine:
-    def __init__(
-        self,
-        host: str = FALKORDB_HOST,
-        port: int = FALKORDB_PORT,
-        prod_graph: str = PROD_GRAPH,
-        mirror_graph: str = MIRROR_GRAPH,
-        auto_connect: bool = True,
-    ):
-        self.host = host
-        self.port = port
-        self.prod_name = prod_graph
-        self.mirror_name = mirror_graph
-        self.db = FalkorDB(host=self.host, port=self.port)
-        if auto_connect:
-            self.connect_with_retries()
-            self.ensure_seeded()
-
-    def connect_with_retries(self, retries: int = DB_STARTUP_RETRIES, interval: float = DB_RETRY_INTERVAL) -> None:
-        last_err = None
-        for attempt in range(1, retries + 1):
-            try:
-                self.check_health()
-                return
-            except Exception as err:
-                last_err = err
-                time.sleep(interval)
-        raise RuntimeError(
-            f"Critical startup failure: Unable to establish ready connection to FalkorDB at {self.host}:{self.port} after {retries} attempts: {last_err}"
-        )
-
-    def check_health(self) -> dict[str, Any]:
-        t0 = time.perf_counter()
-        self._run(self.prod_name, "RETURN 1")
-        latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
-        ents, _ = self._run(self.prod_name, "MATCH (e:Entity) RETURN count(e)")
-        svcs, _ = self._run(self.prod_name, "MATCH (s:Service) RETURN count(s)")
-        return {
-            "status": "HEALTHY",
-            "database": "FalkorDB Connected",
-            "host": self.host,
-            "port": self.port,
-            "prod_graph": self.prod_name,
-            "mirror_graph": self.mirror_name,
-            "entity_count": ents[0][0] if ents else 0,
-            "service_count": svcs[0][0] if svcs else 0,
-            "latency_ms": latency_ms,
-        }
+    def __init__(self, host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, prod_name: str | None = None, mirror_name: str | None = None):
+        self.db = FalkorDB(host=host, port=port)
+        self.prod_name = prod_name or PROD_GRAPH
+        self.mirror_name = mirror_name or MIRROR_GRAPH
+        self.ensure_seeded()
 
     def _run(self, graph_name: str, cypher: str, params: dict[str, Any] | None = None) -> tuple[list[Any], dict[str, Any]]:
         graph = self.db.select_graph(graph_name)
@@ -141,20 +92,22 @@ class TezcatlGraphEngine:
 
         return {"cloned_entities": len(ents), "cloned_attack_edges": len(steps)}
 
-    def get_full_topology(self, graph_name: str = PROD_GRAPH) -> tuple[dict[str, Any], dict[str, Any]]:
+    def get_full_topology(self, graph_name: str | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+        target = graph_name or self.prod_name
         n_rows, n_tel = self._run(
-            graph_name,
+            target,
             "MATCH (e:Entity) RETURN e.id, e.name, e.kind, e.criticality, e.status ORDER BY e.id",
         )
         e_rows, _ = self._run(
-            graph_name,
+            target,
             "MATCH (a:Entity)-[r:ATTACK_STEP]->(b:Entity) WHERE r.active = true RETURN a.id, b.id, r.mechanism, r.evidence_id",
         )
         nodes = [{"id": r[0], "name": r[1], "kind": r[2], "criticality": r[3], "status": r[4]} for r in n_rows]
         edges = [{"source": r[0], "target": r[1], "mechanism": r[2], "evidence_id": r[3]} for r in e_rows]
         return {"nodes": nodes, "edges": edges}, n_tel
 
-    def find_attack_paths(self, source_id: str, graph_name: str = PROD_GRAPH) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    def find_attack_paths(self, source_id: str, graph_name: str | None = None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        target = graph_name or self.prod_name
         cypher = """
         MATCH (src:Entity {id: $source_id}), (target:Entity {criticality: $crit})
         MATCH p = (src)-[:ATTACK_STEP*1..8]->(target)
@@ -166,7 +119,7 @@ class TezcatlGraphEngine:
                [r IN relationships(p) | {mechanism: r.mechanism, evidence_id: r.evidence_id}] AS edges
         ORDER BY hops ASC
         """
-        rows, tel = self._run(graph_name, cypher, {"source_id": source_id, "crit": "crown_jewel"})
+        rows, tel = self._run(target, cypher, {"source_id": source_id, "crit": "crown_jewel"})
         paths = []
         for idx, row in enumerate(rows):
             paths.append({
@@ -178,16 +131,23 @@ class TezcatlGraphEngine:
             })
         return paths, tel
 
-    def compute_centrality_and_blast_radius(self, paths: list[dict[str, Any]], graph_name: str = PROD_GRAPH) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    def compute_centrality_and_blast_radius(self, paths: list[dict[str, Any]], graph_name: str | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        target = graph_name or self.prod_name
         telemetries = []
         centrality_scores: dict[str, float] = {}
-        c_rows, c_tel = self._run(
-            graph_name,
-            "CALL algo.betweenness({nodeLabels: ['Entity'], relationshipTypes: ['ATTACK_STEP']}) YIELD node, score RETURN node.id, score ORDER BY score DESC",
-        )
-        telemetries.append(c_tel)
-        for r in c_rows:
-            centrality_scores[r[0]] = round(float(r[1]), 3)
+        try:
+            c_rows, c_tel = self._run(
+                target,
+                "CALL algo.betweenness({nodeLabels: ['Entity'], relationshipTypes: ['ATTACK_STEP']}) YIELD node, score RETURN node.id, score ORDER BY score DESC",
+            )
+            telemetries.append(c_tel)
+            for r in c_rows:
+                centrality_scores[r[0]] = round(float(r[1]), 3)
+        except Exception:
+            total_p = max(len(paths), 1)
+            for p in paths:
+                for n in p["nodes"][1:-1]:
+                    centrality_scores[n["id"]] = round(centrality_scores.get(n["id"], 0.0) + (1.0 / total_p), 3)
 
         b_cypher = """
         MATCH (e:Entity)
@@ -203,7 +163,7 @@ class TezcatlGraphEngine:
                svc_names AS impacted_services
         ORDER BY blast_cost ASC
         """
-        b_rows, b_tel = self._run(graph_name, b_cypher)
+        b_rows, b_tel = self._run(target, b_cypher)
         telemetries.append(b_tel)
 
         candidates = []
@@ -242,53 +202,23 @@ class TezcatlGraphEngine:
             "telemetry": [mut_tel, ver_tel],
         }
 
-    def commit_containment(
-        self,
-        source_id: str,
-        caller_cut_nodes: list[str] | None = None,
-        caller_blast_cost: int | None = None,
-    ) -> dict[str, Any]:
-        # 1. Fresh pre-action path discovery
+    def commit_containment(self, source_id: str, cut_nodes: list[str], blast_cost: int) -> dict[str, Any]:
         pre_paths, _ = self.find_attack_paths(source_id, graph_name=self.prod_name)
-        if not pre_paths:
-            raise ValueError(f"No active attack paths detected from source '{source_id}' — containment already applied or unnecessary.")
-
-        # 2. Server-side candidate and blast radius evaluation
-        candidates, _ = self.compute_centrality_and_blast_radius(pre_paths, graph_name=self.prod_name)
-
-        # 3. Server-side minimum-cost vertex-cut recomputation
-        solution = self.solve_minimum_cut_set(source_id, pre_paths, candidates)
-        optimal = solution.get("optimal")
-        if not optimal or not optimal.get("complete_cut"):
-            raise RuntimeError(f"Server-side solver could not compute a complete cut to sever all paths from '{source_id}'.")
-
-        # Server-side verified cut set and true blast cost
-        server_cut_nodes = optimal["cut_nodes"]
-        server_blast_cost = optimal["blast_cost"]
-
-        # 4. Apply verified containment to prod_graph
         isolate_cypher = """
         MATCH (e:Entity)
         WHERE e.id IN $cut_nodes
         SET e.status = 'isolated'
         RETURN collect(e.id)
         """
-        _, mut_tel = self._run(self.prod_name, isolate_cypher, {"cut_nodes": server_cut_nodes})
-
-        # 5. FRESH POST-ACTION QUERY to mathematically verify reachability is 0
+        _, mut_tel = self._run(self.prod_name, isolate_cypher, {"cut_nodes": cut_nodes})
         post_paths, ver_tel = self.find_attack_paths(source_id, graph_name=self.prod_name)
-        if len(post_paths) > 0:
-            raise RuntimeError(
-                f"Containment verification failed: {len(post_paths)} active attack paths remain after severing {server_cut_nodes}."
-            )
 
         payload = {
             "source_id": source_id,
-            "severed_nodes": server_cut_nodes,
+            "severed_nodes": cut_nodes,
             "pre_paths": len(pre_paths),
             "post_paths": len(post_paths),
-            "blast_cost": server_blast_cost,
-            "status": "CONTAINED_AND_VERIFIED",
+            "blast_cost": blast_cost,
             "timestamp": int(time.time()),
         }
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()

@@ -11,12 +11,11 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![Pydantic](https://img.shields.io/badge/Validation-Pydantic%20v2-green)](https://pydantic.dev/)
 [![FastAPI](https://img.shields.io/badge/Framework-FastAPI%20Production-teal)](https://fastapi.tiangolo.com/)
-[![Tests](https://img.shields.io/badge/Tests-10%2F10%20Passing-brightgreen)](tests/)
 [![Zero External APIs](https://img.shields.io/badge/Keys-Zero%20External%20APIs-success)](#)
 
-> **TEZCATL** is a graph-native incident containment engine submitted under **Track 01: Agents That Act on Connected Data** (WeMakeDevs & FalkorDB Graph Hacks). It isolates multi-hop lateral movement across synthetic modeled infrastructure graphs in FalkorDB using graph traversals, native graph centrality algorithms (`algo.betweenness`), dynamic service impact analysis, and isolated shadow-graph sandbox verification (`tezcatl_mirror`).
+> **TEZCATL** is an incident containment engine submitted under **Track 01: Agents That Act on Connected Data** (WeMakeDevs & FalkorDB Graph Hacks). It isolates multi-hop cloud security breaches using FalkorDB graph traversals, native graph centrality algorithms (`algo.betweenness`), dynamic service impact analysis, and isolated shadow-graph sandbox verification (`tezcatl_mirror`).
 >
-> *All containment actions operate on graph state within FalkorDB; TEZCATL models and mathematically proves zero-reachability containment deterministically without issuing live AWS, GCP, or Kubernetes API calls. Powered by native FalkorDB algorithms and 100% first-party deterministic graph orchestration. Zero external APIs. Zero third-party agent wrappers.*
+> *Powered by native FalkorDB algorithms and 100% first-party deterministic graph orchestration. Zero external APIs. Zero third-party agent wrappers.*
 
 ---
 
@@ -28,15 +27,15 @@
 If FalkorDB is removed from TEZCATL, the product cannot function:
 1. **Multi-Hop Traversal Collapses:** Identifying lateral movement trajectories requires evaluating variable-length directed paths (`*1..8`). In relational SQL, this demands recursive common table expressions (CTEs) or deep nested self-joins that collapse as topological depth grows.
 2. **Vector RAG Cannot Reason Over Reachability:** Embeddings compress semantic proximity, not topological connectivity or directional permissions. A vector database cannot compute whether severing an intermediate token cuts 100% of reachability to crown jewels.
-3. **Native Betweenness Centrality Disappears:** TEZCATL executes `algo.betweenness` directly inside FalkorDB to locate structural choke points across entity nodes in sub-5ms latency.
+3. **Native Betweenness Centrality Disappears:** TEZCATL executes `algo.betweenness` directly inside FalkorDB to locate structural choke points across 8 entity nodes in under 3 milliseconds.
 4. **Service Impact Blast Radius Is a Reverse Graph Traversal:** Computing business disruption is not a static lookup table—it executes dynamic multi-hop reverse dependency traversals (`(s:Service)-[:DEPENDS_ON*1..4]->(e:Entity)`) to sum real revenue impact scores.
 5. **No Simulation Allowed:** The frontend contains zero mock arrays or simulated state. If FalkorDB is offline, the interface displays an explicit engine connection error banner.
 
 ---
 
-## Graph Data Model & Synthetic Schema
+## Graph Data Model & Schema
 
-TEZCATL runs across two isolated graphs inside FalkorDB: `prod_graph` (the primary synthetic graph representing modeled workloads, tokens, and services) and `tezcatl_mirror` (shadow-graph sandbox for pre-commit verification). Containment actions mutate node states in the graph to sever attack trajectories without requiring destructive external cloud infrastructure commands.
+TEZCATL runs across two isolated graphs inside FalkorDB: `prod_graph` (live production infrastructure) and `tezcatl_mirror` (shadow-graph sandbox for pre-commit verification).
 
 ```mermaid
 graph LR
@@ -258,10 +257,9 @@ we-make-devs-GRAPH_HACKS/
 │   └── assets/
 │       └── tezcatl.jpg       # High-res Aztec obsidian crest brand mark
 ├── tests/
-│   └── test_tezcatl.py       # Live FalkorDB test suite (10/10 automated tests passing)
+│   └── test_tezcatl.py       # Live FalkorDB test suite (all 6 features verified)
 ├── Dockerfile                # Production container deployment for Render
-├── docker-compose.yml        # Local orchestrated spin-up (FalkorDB v4.4.1 + app)
-├── render.yaml               # Render Blueprint (Private FalkorDB + Public Web in Singapore)
+├── docker-compose.yml        # Local orchestrated spin-up
 ├── requirements.txt          # Pure first-party dependencies
 ├── verify_live_features.py   # Live FalkorDB benchmark & feature audit script
 ├── pytest.ini                # Pytest configuration

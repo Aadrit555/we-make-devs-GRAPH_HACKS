@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field
 class CutActionRequest(BaseModel):
     """Payload for committing minimum vertex cut containment."""
     source_id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]{1,64}$", description="Breach origin ID")
-    cut_nodes: Optional[List[str]] = Field(default=None, description="Proposed nodes to isolate (validated server-side)")
-    blast_cost: Optional[int] = Field(default=None, ge=0, description="Proposed service disruption cost (validated server-side)")
+    cut_nodes: List[str] = Field(..., min_length=1, description="Nodes to isolate")
+    blast_cost: int = Field(default=0, ge=0, description="Calculated service disruption cost")
 
 
 class SourceRequest(BaseModel):
@@ -70,10 +70,6 @@ class CutPlan(BaseModel):
 class CutSolution(BaseModel):
     optimal: Optional[CutPlan] = None
     evaluated: List[CutPlan] = Field(default_factory=list)
-    candidate_count: Optional[int] = None
-    search_depth_evaluated: Optional[int] = None
-    is_exhaustive: Optional[bool] = None
-    optimality_scope: Optional[str] = None
 
 
 class MirrorProof(BaseModel):

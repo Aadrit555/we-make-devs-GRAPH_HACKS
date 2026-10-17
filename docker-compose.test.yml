@@ -1,0 +1,39 @@
+version: '3.8'
+
+name: tezcatl-test
+
+services:
+  test-falkordb:
+    image: falkordb/falkordb:latest
+    container_name: tezcatl-test-falkordb
+    ports:
+      - "6380:6379"
+    volumes:
+      - falkordb_test_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  test-app:
+    build: .
+    container_name: tezcatl-test-app
+    ports:
+      - "8001:8000"
+    environment:
+      - FALKORDB_HOST=test-falkordb
+      - FALKORDB_PORT=6379
+      - TEZCATL_PROD_GRAPH=tezcatl_test_prod
+      - TEZCATL_MIRROR_GRAPH=tezcatl_test_mirror
+      - TEZCATL_SOURCE_ID=ci-runner-07
+      - TEZCATL_TARGET_ID=prod-signing-key
+      - TEZCATL_MAX_HOPS=8
+    depends_on:
+      test-falkordb:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  falkordb_test_data:
