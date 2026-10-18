@@ -1,0 +1,35 @@
+# Render Infrastructure as Code Blueprint for TEZCATL
+# Services: Private FalkorDB (persistent disk) + Public Dockerized FastAPI/UI
+
+services:
+  - type: pserv
+    name: falkordb
+    env: image
+    image:
+      url: falkordb/falkordb:latest
+    plan: starter
+    disk:
+      name: falkordb-data
+      mountPath: /var/lib/falkordb/data
+      sizeGB: 10
+
+  - type: web
+    name: tezcatl-engine
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: FALKORDB_HOST
+        fromService:
+          type: pserv
+          name: falkordb
+          property: host
+      - key: FALKORDB_PORT
+        value: "6379"
+      - key: TEZCATL_PROD_GRAPH
+        value: prod_graph
+      - key: TEZCATL_MIRROR_GRAPH
+        value: tezcatl_mirror
+      - key: TEZCATL_ADMIN_TOKEN
+        value: tezcatl-demo-token-2026
